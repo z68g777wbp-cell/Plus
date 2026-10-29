@@ -8,7 +8,7 @@
   const LEVELS = {
     1: { label: 'ZR 6', count: 10, minSum: 2, maxSum: 6 },
     2: { label: 'ZR 10', count: 10, minSum: 6, maxSum: 10 },
-    3: { label: 'ZR 20', count: 20, minSum: 10, maxSum: 20 }
+    3: { label: 'ZR 20', count: 20, minSum: 11, maxSum: 20 }
   };
   function shuffle(list, random = Math.random) {
     const a = list.slice();
@@ -131,29 +131,39 @@
     resetBoard(); clearDotPlacement();
     const dots = $$('.dot');
     dots.forEach(d => d.classList.remove('red','blue','green'));
-    if (levelNumber < 3) {
-      const big=Math.max(x,y), small=Math.min(x,y), diff=big-small;
-      if (diff <= 2) {
-        for (let i=0;i<big;i++){ placeDot(i,1,i+1); dots[i].classList.add('blue'); }
-        for (let i=0;i<small;i++){ placeDot(big+i,2,i+1); dots[big+i].classList.add('red'); }
-      } else {
-        for(let i=0;i<big;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
-        for(let i=0;i<small;i++){placeDot(big+i,1,big+i+1);dots[big+i].classList.add('red');}
-      }
-    } else if (Math.max(x,y)>10) {
-      const big=Math.max(x,y), small=Math.min(x,y);
-      for(let i=0;i<10;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
-      for(let i=0;i<big-10;i++){placeDot(10+i,2,i+1);dots[10+i].classList.add('blue');}
-      for(let i=0;i<small;i++){placeDot(big+i,2,big-10+i+1);dots[big+i].classList.add('red');}
+    // Level 1/2: near doubles are shown in two rows; otherwise counters fill left-to-right.
+    // Level 3 starts with a stable left-to-right arrangement. Every counter gets one unique cell.
+    let placements = [];
+    if (levelNumber < 3 && Math.abs(x-y) <= 2) {
+      const firstIsBig = x >= y;
+      const big = Math.max(x,y), small = Math.min(x,y);
+      for (let i=0;i<big;i++) placements.push({index:firstIsBig ? i : x+i, row:1, col:i+1, color:firstIsBig ? (x>=y?'blue':'red') : 'red'});
+      for (let i=0;i<small;i++) placements.push({index:firstIsBig ? big+i : i, row:2, col:i+1, color:firstIsBig ? (x>=y?'red':'blue') : 'blue'});
+      // Ensure original summand colors are retained even when x is the smaller addend.
+      placements = [];
+      for (let i=0;i<x;i++) placements.push({index:i,row:1,col:i+1,color:'blue'});
+      for (let i=0;i<y;i++) placements.push({index:x+i,row:2,col:i+1,color:'red'});
     } else {
-      const big=Math.max(x,y), small=Math.min(x,y);
-      for(let i=0;i<big;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
-      for(let i=0;i<small;i++){placeDot(big+i,2,i+1);dots[big+i].classList.add('red');}
+      for (let i=0;i<x;i++) placements.push({index:i,row:Math.floor(i/10)+1,col:(i%10)+1,color:'blue'});
+      for (let i=0;i<y;i++) { const n=x+i; placements.push({index:n,row:Math.floor(n/10)+1,col:(n%10)+1,color:'red'}); }
     }
+    placements.forEach(p => { placeDot(p.index,p.row,p.col); dots[p.index].classList.add(p.color); });
   }
   async function moveCounterToCell(dotIndex, targetRow, targetCol, token, duration = 900) {
     const dots = $$('.dot'), dot = dots[dotIndex];
     if (!dot || token !== animationToken) return;
+    // Never move a counter onto an occupied cell. If the requested cell is occupied,
+    // choose the nearest free cell, scanning left-to-right, top-to-bottom.
+    const allDots = $$('.dot');
+    const occupied = new Set(allDots.filter((d,i)=>i!==dotIndex && d.style.gridRow && d.style.gridColumn)
+      .map(d=>`${d.style.gridRow},${d.style.gridColumn}`));
+    let targetKey = `${targetRow},${targetCol}`;
+    if (occupied.has(targetKey)) {
+      let found = null;
+      for (let r=1;r<=2 && !found;r++) for(let c=1;c<=10;c++) if(!occupied.has(`${r},${c}`)){found={r,c};break;}
+      if (!found) return;
+      targetRow=found.r; targetCol=found.c; targetKey=`${targetRow},${targetCol}`;
+    }
     const layer = $('#pointsLayer');
     const field = layer.getBoundingClientRect();
     const styles = getComputedStyle(layer);
@@ -186,7 +196,7 @@
     dot.style.gridColumn = String(targetCol);
   }
   async function coverAnimation(token) {
-    await sleep(1500);
+    await sleep(2000);
     if (token !== animationToken) return;
     // The yellow cover stays in place while the child solves the equation.
     el.fadeMask.style.opacity = '1';
@@ -255,7 +265,7 @@
     if (level === 1 || level === 2) {
       if (diff <= 2) {
         if (diff === 2) {
-          await sleep(1500); if(token!==animationToken) return;
+          await sleep(2000); if(token!==animationToken) return;
           // Move one blue counter from the larger group into the next EMPTY red-row cell.
           // The original blue/red counts remain constant throughout the animation.
           const big=Math.max(x,y), small=Math.min(x,y);
@@ -281,7 +291,7 @@
         frameDotIndexes(el.redFrame, indices);
         el.labelTop.textContent = `${extra} + ${small}`;
         el.labelBottom.textContent = `${small} + ${extra} = ${small+extra}; ${small+extra} + 5 = ${x+y}`;
-        await sleep(1500);
+        await sleep(2000);
       }
     }
     if (token === animationToken) await coverAnimation(token);
@@ -359,7 +369,7 @@
     // Nach einem falschen Erstversuch wird die gewählte Strategie als konkrete Rechenhilfe gezeigt.
     if (strategy === 'double' && Core.strategyValidity('double', x, y)) {
       const smaller = Math.min(x, y);
-      frameDots(el.redFrame, 0, smaller);
+      frameDotIndexes(el.redFrame, [...Array.from({length: smaller}, (_, i) => i), ...Array.from({length: smaller}, (_, i) => 10 + i)]);
       el.labelTop.textContent = `${smaller} + ${smaller}`;
       el.labelBottom.textContent = Math.abs(x-y) === 1 ? `+ 1 = ${sum}` : `= ${sum}`;
     } else if (strategy === 'hand' && Core.strategyValidity('hand', x, y)) {
@@ -395,7 +405,7 @@
     } else {
       el.labelBottom.textContent = `${x} + ${y} = ${sum}`;
     }
-    await sleep(1500);
+    await sleep(2000);
     if (token !== animationToken) return;
     el.fadeMask.style.opacity = '1';
     el.strategyHint.textContent = `Rechne: ${x} + ${y}.`;
@@ -412,9 +422,9 @@
     const x = current.x, y = current.y, sum = x+y;
     setDotsForLevel(x,y,3); if (token !== animationToken) return;
     if (name === 'double') {
-      const smaller = Math.min(x,y); frameDots(el.redFrame, 0, smaller); el.labelTop.textContent = `${smaller} + ${smaller}`;
-      if (Math.abs(x-y) === 1) el.labelBottom.textContent = '+ 1';
-      await sleep(1500);
+      const smaller = Math.min(x,y); frameDotIndexes(el.redFrame, [...Array.from({length:smaller},(_,i)=>i), ...Array.from({length:smaller},(_,i)=>x+i)]); el.labelTop.textContent = `${smaller} + ${smaller}`;
+      if (Math.abs(x-y) === 1) el.labelBottom.textContent = '+1';
+      await sleep(2000);
       if (token !== animationToken) return;
       
     } else if (name === 'hand') {
@@ -431,7 +441,7 @@
       for (let i = 0; i < Math.min(20, sum); i++) if (!fiveIndices.includes(i)) restIndices.push(i);
       frameDotIndexes(el.redFrame, fiveIndices); frameDotIndexes(el.greenFrame, restIndices);
       el.labelTop.textContent = '5 + 5 = 10'; el.labelBottom.textContent = `${Math.max(0,x-5)} + ${Math.max(0,y-5)}`;
-      await sleep(1500);
+      await sleep(2000);
     } else if (name === 'nine') {
       const other = x === 9 ? y : x;
       const big = Math.max(x,y), small = Math.min(x,y);
@@ -439,7 +449,7 @@
       await moveCounterToCell(donorIndex, 1, 10, token, 900);
       if(token!==animationToken) return;
       frameDots(el.redFrame,0,10); el.labelTop.textContent = '9 + 1 = 10'; el.labelBottom.textContent = `10 + ${other-1} = ${sum}`;
-      await sleep(1500);
+      await sleep(2000);
     } else if (name === 'ten') {
       const big = Math.max(x,y), small = Math.min(x,y), transfer = 10-big;
       const smallStartsAt = x < y ? 0 : x;
@@ -450,12 +460,14 @@
         await moveCounterToCell(sourceIndex, bigRow, bigCount+i+1, token, 650);
         if(token!==animationToken) return;
       }
-      frameDots(el.redFrame, 0, 10); el.labelTop.textContent = `${big} + ${transfer} = 10`; el.labelBottom.textContent = `10 + ${small-transfer} = ${sum}`;
-      await sleep(1500);
+      frameDots(el.redFrame, 0, 10);
+      // The 10er-Stopp auxiliary calculation is intentionally withheld until a wrong first attempt.
+      el.labelTop.textContent = ''; el.labelBottom.textContent = '';
+      await sleep(2000);
     } else if (name === 'giant') {
       const big = Math.max(x,y), small = Math.min(x,y); setDotsForLevel(x,y,3); $$('.dot').slice(0,10).forEach(dot => dot.style.opacity='.24');
       el.labelTop.textContent = `${big-10} + ${small}`; el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
-      await sleep(1500);
+      await sleep(2000);
     }
     if (token !== animationToken) return;
     el.fadeMask.style.opacity = '1';

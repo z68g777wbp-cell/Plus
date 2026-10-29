@@ -40,11 +40,16 @@ Aufgaben, Zeit und Ergebnisse werden während des Durchgangs lokal im Arbeitsspe
 - Das 20er-Feld wird als statisches Raster aus 20 Zellen aufgebaut. Die farbigen Plättchen liegen in einer separaten Ebene darüber.
 - Eine Bewegung verschiebt dasselbe Plättchen auf eine freie Rasterzelle; die Anzahl und Farbe der Plättchen bleiben dabei erhalten.
 - In Level 3 bleibt das Raster zunächst leer. Erst nach Auswahl einer Strategie startet deren Animation.
-- Nach der 1,5-Sekunden-Anzeige wird die Animation durch ein gelbes Feld abgedeckt. Die Abdeckung bleibt bis zur nächsten Aufgabe sichtbar.
+- Nach der 2-Sekunden-Anzeige wird die Animation durch ein gelbes Feld abgedeckt. Die Abdeckung bleibt bis zur nächsten Aufgabe sichtbar.
 - Automatisierte Prüfungen starten mit `node tests/tasks.test.js` und `node tests/animation.test.js`.
 
-## Durchgeführte Browserprüfung
+## Teststatus dieser Überarbeitung
 
-Die interaktive Browserprüfung mit Chromium/Playwright wurde erfolgreich ausgeführt. Dabei wurden geprüft: 20 statische Feldzellen, separate Plättchenebene, Level-3-Start erst nach Strategieauswahl, gelbe Abdeckung nach Abschluss der Strategieanimation und Wartezeit, Plättchenanzahl/Farben, vollständige zweistellige Eingabe, automatische Prüfung erst nach vollständiger Eingabe, automatischer Aufgabenwechsel nach 0,25 Sekunden, vier Viewport-Größen ohne Scrollüberlauf und keine JavaScript-Laufzeitfehler.
+Erfolgreich ausgeführt:
+- `node --check game.js`
+- `node tests/tasks.test.js` (1.500 zufällige Aufgabenblöcke, Gültigkeit und Duplikate)
+- `node tests/animation.test.js` (statische Strukturprüfungen für Feld, Plättchenebene, Strategiestart, freie Zielzellen, Rahmengruppierung und Abdeckung)
 
-Die Browserprüfung ersetzt keinen separaten physischen iPad-Test. Benutzerkonten, dauerhafte Server-Speicherung und Lehrer:innen-Dashboard sind nicht Teil dieser Version.
+Ein interaktiver Chromium-/Playwright-Lauf wurde versucht, ist in der Ausführungsumgebung aber durch `ERR_BLOCKED_BY_ADMINISTRATOR` blockiert worden. Daher wird die visuelle Darstellung in einem echten Browser nicht als vollständig abgenommen ausgewiesen. Bitte führe vor dem Unterricht einen kurzen Sichttest in Safari/Chrome auf dem Zielgerät durch.
+
+Benutzerkonten, dauerhafte Server-Speicherung und Lehrer:innen-Dashboard sind nicht Teil dieser Version.

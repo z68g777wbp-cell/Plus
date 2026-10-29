@@ -34,7 +34,22 @@
 
 /* The 20-frame is a static two-row background; counters live on an independent overlay. */
 .points-field{z-index:0}
-.points-layer .dot{position:relative;z-index:2;align-self:center;justify-self:center;width:min(82%,var(--dot));max-width:100%;aspect-ratio:1;border:2px solid #163047;box-shadow:0 0 0 1px #ffffff55;visibility:hidden}.points-layer .dot.red,.points-layer .dot.blue,.points-layer .dot.green{visibility:visible}
-.fade-mask{z-index:8;background:#facc15}
+.points-layer .dot{position:relative;z-index:2;align-self:center;justify-self:center;width:min(94%,var(--dot));max-width:100%;aspect-ratio:1;border:0;box-shadow:none;visibility:hidden}.points-layer .dot.red,.points-layer .dot.blue,.points-layer .dot.green{visibility:visible}
+.fade-mask{z-index:8;background:#facc15;opacity:0;transition:opacity .15s}
 .frame{z-index:5}
 .board-label{z-index:6}
+
+/* Final animation geometry: circles fill their cells, never show a black outline. */
+.points-field{grid-template-columns:repeat(10,minmax(0,1fr));gap:clamp(3px,.45vw,6px);row-gap:clamp(8px,1.4vw,18px);padding:clamp(5px,.7vw,9px)}
+.points-layer{grid-template-columns:repeat(10,minmax(0,1fr));gap:clamp(3px,.45vw,6px);row-gap:clamp(8px,1.4vw,18px);padding:clamp(5px,.7vw,9px)}
+.points-layer .dot{width:86%;height:auto;aspect-ratio:1;border:0;background:transparent;box-shadow:none;border-radius:50%;visibility:hidden;align-self:center;justify-self:center}
+.points-layer .dot.red,.points-layer .dot.blue,.points-layer .dot.green{visibility:visible}
+.points-layer .dot.red{background:#ef4444}.points-layer .dot.blue{background:#3b82f6}.points-layer .dot.green{background:#22c55e}
+.points-layer .dot::after{content:none}
+.points-wrap{overflow:visible}
+.board-label{left:0;right:0;text-align:center;white-space:normal;overflow-wrap:anywhere;line-height:1.15}
+#labelTop{top:-2.9em;bottom:auto}
+#labelBottom{top:-1.45em;bottom:auto}
+.fade-mask{background:#facc15;opacity:0;z-index:8;border-radius:0;transition:opacity .12s}
+.frame{z-index:7}
+@media(max-width:700px){.points-layer{gap:3px;row-gap:7px;padding:4px}.points-layer .dot{width:86%}#labelTop{top:-2.8em}#labelBottom{top:-1.4em}.board-label{font-size:clamp(11px,2.5vw,17px)}}
