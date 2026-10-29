@@ -3,3 +3,31 @@
 @media(max-width:700px){#app{padding-left:max(6px,env(safe-area-inset-left));padding-right:max(6px,env(safe-area-inset-right));gap:5px}.topbar{gap:5px}.brand{display:none}.level-select{gap:4px}.level-btn{padding:8px 7px;font-size:11px}.leave-btn{min-width:36px}.board-panel,.work-panel{border-radius:14px}#game{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(110px,.8fr) minmax(0,1.5fr);gap:6px}.board-panel{padding:5px;gap:2px}.points-wrap{width:min(100%,calc((100dvh - 300px)*1.65));aspect-ratio:10/2.25}.points-field{gap:3px;padding:4px}.dot{width:clamp(7px,2.1vw,15px)}.work-panel{padding:8px;gap:5px}.equation-row{min-height:40px}.task-text{font-size:clamp(25px,5vh,42px)}.answer-input{height:42px;width:70px;font-size:30px}.keypad{grid-template-columns:repeat(6,minmax(0,1fr));width:100%;gap:4px}.key-btn{min-height:clamp(28px,5.3vh,42px);font-size:20px}.strategy-area{padding-top:4px}.strategy-buttons{grid-template-columns:repeat(5,minmax(0,1fr));gap:3px}.strategy-btn{min-height:44px;padding:3px 1px;font-size:clamp(8px,1.3vh,11px)}.strategy-btn span{font-size:18px}.strategy-title{margin-bottom:4px}.bottom-row{min-height:30px}.next-btn{min-height:32px;padding:6px 12px}.footnote{font-size:9px}}
 @media(max-width:700px) and (orientation:landscape){#game{grid-template-columns:minmax(0,1fr) minmax(250px,.95fr);grid-template-rows:minmax(0,1fr)}.board-panel{padding:5px}.points-wrap{width:100%;aspect-ratio:10/2.25}.work-panel{padding:7px;gap:4px}.keypad{grid-template-columns:repeat(6,minmax(0,1fr))}.key-btn{min-height:clamp(26px,7vh,38px)}.equation-row{min-height:35px}.task-text{font-size:clamp(25px,6vh,40px)}.answer-input{height:38px}.strategy-btn{min-height:37px}.strategy-title{font-size:11px}.strategy-btn span{font-size:15px}}
 @media(min-width:701px) and (max-height:620px){#game{grid-template-columns:minmax(0,1fr) minmax(300px,.9fr)}.work-panel{gap:4px;padding:8px}.points-wrap{width:min(100%,calc((100dvh - 95px)*1.8))}.key-btn{min-height:30px}.equation-row{min-height:36px}.answer-input{height:38px}.strategy-btn{min-height:38px}.footnote{display:none}}
+
+/* 20er-Feld: 20 gleich große Kästchen, als zwei Fünfergruppen pro Zeile. */
+.points-field{gap:clamp(3px,.45vw,6px);padding:clamp(5px,.7vw,9px);border:0;border-radius:0;background:#d4d4d4;grid-template-columns:repeat(5,minmax(0,1fr)) clamp(8px,1.4vw,18px) repeat(5,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));}
+.dot{position:relative;width:100%;height:100%;min-width:0;aspect-ratio:auto;border-radius:0;background:#fff;border:1px solid #c9c9c9;transition:opacity .15s,transform .25s;}
+.dot.red,.dot.blue,.dot.green{background:#fff;}
+.dot::after{content:"";position:absolute;left:50%;top:50%;width:min(68%,var(--dot));aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%);background:transparent;}
+.dot.red::after{background:#ef4444;}
+.dot.blue::after{background:#3b82f6;}
+.dot.green::after{background:#22c55e;}
+/* A broad divider separates the two rows, like the supplied reference image. */
+.points-field{row-gap:clamp(8px,1.4vw,18px);}
+@media(max-width:700px){.points-field{gap:3px;row-gap:7px;padding:4px}.dot::after{width:min(68%,var(--dot))}}
+.points-field{grid-template-columns:repeat(10,minmax(0,1fr));}
+.dot:nth-child(6),.dot:nth-child(16){margin-left:clamp(8px,1.4vw,18px);}
+
+/* Alle fünf Strategiekarten sind in jeder Ansicht gleich breit und gleich hoch. */
+.strategy-buttons{grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch}
+.strategy-btn{width:100%;height:clamp(58px,8vh,82px);min-height:0;box-sizing:border-box;overflow-wrap:anywhere}
+.strategy-btn span{flex:0 0 auto}
+@media(max-width:700px){.strategy-btn{height:clamp(46px,8vh,62px);font-size:clamp(8px,1.25vh,11px);line-height:1.05}.strategy-btn span{font-size:clamp(14px,2.3vh,20px)}}
+@media(max-width:420px){.strategy-btn{font-size:8px;padding:2px 1px}.strategy-btn span{font-size:14px}}
+
+/* Einheitliche Strategie-Karten: fünf gleich breite und gleich hohe Felder in jeder Ausrichtung. */
+.strategy-buttons{grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch}
+.strategy-btn{width:100%;height:clamp(46px,7vh,76px);min-height:0;box-sizing:border-box;overflow-wrap:anywhere;line-height:1.05}
+.strategy-btn span{flex:0 0 auto}
+@media(max-width:700px){.strategy-btn{height:clamp(38px,6.5vh,56px);font-size:clamp(8px,1.25vh,11px);padding:2px 1px}.strategy-btn span{font-size:clamp(13px,2.3vh,19px)}}
+@media(max-width:420px){.strategy-btn{font-size:8px;letter-spacing:-.2px}.strategy-btn span{font-size:14px}}

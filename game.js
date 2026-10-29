@@ -78,8 +78,8 @@
     resultTime: $('#resultTime'), resultDetails: $('#resultDetails'), celebration: $('#resultCelebration'), again: $('#againBtn'), resultLevel: $('#resultLevelBtn')
   };
   let level = 1, tasks = [], index = 0, current = null, firstAttempts = 0, correct = 0, wrong = 0, startAt = 0, taskStartAt = 0;
-  let taskRecords = [], pendingRetries = [], retryQueue = [], checkTimer = null, animationToken = 0, lock = false, currentFirstTaskPosition = 0;
-  let starsTimer = null;
+  let taskRecords = [], retryQueue = [], checkTimer = null, animationToken = 0, lock = false;
+  let starsTimer = null, lastChosenStrategy = null;
   const STRATEGIES = {
     double: { name: 'Verdoppeln', invalid: 'Die Zahlen dürfen höchstens 1 auseinander sein!' },
     hand: { name: 'Handaufgabe', invalid: 'Du brauchst zwei Fünfer.' },
@@ -133,7 +133,6 @@
     const bottom = Math.max(...rects.map(r => r.bottom)) - wrap.top + 3;
     Object.assign(frame.style, { left: `${left}px`, top: `${top}px`, width: `${right-left}px`, height: `${bottom-top}px`, opacity: '1' });
   }
-  function showResultIfDue() { if (firstAttempts >= Core.LEVELS[level].count) finishSession(false); }
   function updateProgress() {
     const total = Core.LEVELS[level].count;
     el.progressText.textContent = `Aufgabe ${Math.min(firstAttempts + 1, total)} von ${total}`;
@@ -142,7 +141,7 @@
   function renderTask() {
     if (!current) return;
     resetBoard(); el.taskText.textContent = `${current.x} + ${current.y}`; el.answer.value = ''; el.answer.classList.remove('ok','bad');
-    el.feedback.textContent = ''; el.strategyHint.textContent = ''; el.next.hidden = true; lock = false;
+    el.feedback.textContent = ''; el.strategyHint.textContent = ''; el.next.hidden = true; lock = false; lastChosenStrategy = null;
     el.answer.disabled = false; el.keypad.querySelectorAll('button').forEach(b => b.disabled = false);
     el.strategyArea.hidden = level !== 3;
     el.taskText.style.display = ''; $('.equals').style.display = ''; el.answer.style.display = '';
@@ -160,8 +159,13 @@
         frameDots(el.redFrame, 0, Math.min(task.x,task.y)); await sleep(850);
       } else if (Math.abs(task.x-task.y) === 2) {
         const big = Math.max(task.x,task.y), small = Math.min(task.x,task.y);
-        el.labelTop.textContent = `${big} → ${big-1}`; await sleep(650);
-        frameDots(el.redFrame, 0, small); await sleep(850);
+        const dots = $$('.dot');
+        const bigIsRed = task.x > task.y;
+        const movingDot = dots[(bigIsRed ? task.x : task.x + task.y) - 1];
+        if (movingDot) { movingDot.classList.add('moving'); movingDot.style.transform = 'translate(0,-8px)'; }
+        el.labelTop.textContent = `${big} → ${big-1} + ${small+1}`; await sleep(650);
+        if (movingDot) { movingDot.classList.remove('moving'); movingDot.style.transform = ''; }
+        frameDots(el.redFrame, 0, small+1); await sleep(850);
       }
     } else if (level === 2) {
       if (task.x === 5 || task.y === 5) {
@@ -179,18 +183,20 @@
     // Retry queue is inserted after two further first-attempt tasks.
     const retry = retryQueue.shift();
     if (retry && retry.dueAt <= firstAttempts) {
-      current = { ...retry.task, isRetry: true, sourceRecord: retry.record };
+      current = { ...retry.task, isRetry: true, sourceRecord: retry.record, firstErrorRecorded: true, record: retry.record };
     } else {
       if (retry) retryQueue.unshift(retry);
       if (index >= tasks.length) return finishSession(false);
       current = { ...tasks[index++], isRetry: false };
-      currentFirstTaskPosition = firstAttempts;
     }
     renderTask();
   }
   function scheduleCheck() {
     if (checkTimer) clearTimeout(checkTimer);
-    if (!el.answer.value || lock || el.answer.disabled) return;
+    if (!el.answer.value || lock || el.answer.disabled || !current) return;
+    // Check only once every digit of the expected answer has been entered.
+    const requiredDigits = String(current.x + current.y).length;
+    if (el.answer.value.length !== requiredDigits) return;
     checkTimer = setTimeout(checkAnswer, 250);
   }
   function checkAnswer() {
@@ -209,8 +215,14 @@
           current.record.seconds = (Date.now()-taskStartAt)/1000;
         }
       } else if (current.sourceRecord) current.sourceRecord.retrySolved = true;
-      el.next.hidden = false; el.next.focus({preventScroll:true}); updateProgress();
-      if (firstAttempts >= Core.LEVELS[level].count) { el.next.textContent = 'Auswertung'; }
+      el.next.hidden = true; updateProgress();
+      // The next task (or the result) appears automatically after a short pause.
+      const token = ++animationToken;
+      setTimeout(() => {
+        if (token !== animationToken || !lock) return;
+        if (firstAttempts >= Core.LEVELS[level].count) finishSession(false);
+        else pickNext();
+      }, 250);
     } else {
       el.answer.classList.remove('ok'); el.answer.classList.add('bad');
       if (!current.isRetry && !current.firstErrorRecorded) {
@@ -227,18 +239,52 @@
     }
   }
   async function runStrategyHelp(task, token) {
-    setDots(task.x, task.y); await sleep(350); if (token !== animationToken) return;
-    el.labelBottom.textContent = `${task.x} + ${task.y} = ${task.x + task.y}`;
-    await sleep(1100); if (token !== animationToken) return;
-    el.labelBottom.textContent = '';
+    const x = task.x, y = task.y, sum = x + y;
+    setDots(x, y);
+    await sleep(250);
+    if (token !== animationToken) return;
+    const strategy = lastChosenStrategy;
+    // Nach einem falschen Erstversuch wird die gewählte Strategie als konkrete Rechenhilfe gezeigt.
+    if (strategy === 'double' && Core.strategyValidity('double', x, y)) {
+      const smaller = Math.min(x, y);
+      frameDots(el.redFrame, 0, smaller);
+      el.labelTop.textContent = `${smaller} + ${smaller}`;
+      el.labelBottom.textContent = Math.abs(x-y) === 1 ? `+ 1 = ${sum}` : `= ${sum}`;
+    } else if (strategy === 'hand' && Core.strategyValidity('hand', x, y)) {
+      frameDots(el.redFrame, 0, 5);
+      if (sum > 10) frameDots(el.greenFrame, 5, sum - 10);
+      el.labelTop.textContent = '5 + 5 = 10';
+      el.labelBottom.textContent = `${Math.max(0, x - 5)} + ${Math.max(0, y - 5)} = ${sum - 10}`;
+    } else if (strategy === 'nine' && Core.strategyValidity('nine', x, y)) {
+      const other = x === 9 ? y : x;
+      el.labelTop.textContent = '9 + 1 = 10';
+      el.labelBottom.textContent = `10 + ${other - 1} = ${sum}`;
+    } else if (strategy === 'ten' && Core.strategyValidity('ten', x, y)) {
+      const big = Math.max(x, y), small = Math.min(x, y), transfer = 10 - big;
+      frameDots(el.redFrame, 0, 10);
+      el.labelTop.textContent = `${big} + ${transfer} = 10`;
+      el.labelBottom.textContent = `10 + ${small - transfer} = ${sum}`;
+    } else if (strategy === 'giant' && Core.strategyValidity('giant', x, y)) {
+      const big = Math.max(x, y), small = Math.min(x, y);
+      el.labelTop.textContent = `${big - 10} + ${small} = ${big - 10 + small}`;
+      el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
+      $$('.dot').slice(0, Math.min(10, big)).forEach(dot => dot.style.opacity = '.3');
+    } else {
+      el.labelBottom.textContent = `${x} + ${y} = ${sum}`;
+    }
+    await sleep(1500);
+    if (token !== animationToken) return;
+    resetBoard(); setDots(x, y);
+    el.strategyHint.textContent = `Rechne: ${x} + ${y}.`;
   }
   async function chooseStrategy(name) {
     if (level !== 3 || !current || lock) return;
     const cfg = STRATEGIES[name];
     if (!Core.strategyValidity(name, current.x, current.y)) {
-      el.strategyHint.textContent = cfg.invalid; speak(cfg.invalid); return;
+      el.strategyHint.textContent = cfg.invalid; el.feedback.textContent = cfg.invalid; speak(cfg.invalid); return;
     }
     el.strategyHint.textContent = cfg.name;
+    lastChosenStrategy = name;
     const token = ++animationToken;
     const x = current.x, y = current.y, sum = x+y;
     setDots(x,y); await sleep(250); if (token !== animationToken) return;
@@ -293,7 +339,7 @@
   }
   function startSession(newLevel = level) {
     clearTimers(); window.speechSynthesis?.cancel(); level = newLevel;
-    tasks = Core.buildTaskBlock(level); index = 0; current = null; firstAttempts = 0; correct = 0; wrong = 0; taskRecords = []; pendingRetries = []; retryQueue = []; startAt = Date.now(); taskStartAt = startAt;
+    tasks = Core.buildTaskBlock(level); index = 0; current = null; firstAttempts = 0; correct = 0; wrong = 0; taskRecords = []; retryQueue = []; startAt = Date.now(); taskStartAt = startAt;
     el.result.hidden = true; el.game.hidden = false; el.strategyArea.hidden = level !== 3; el.next.hidden = true;
     $$('.level-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.level) === level));
     pickNext(); fitToScreen();
@@ -313,7 +359,7 @@
       const key = btn.dataset.key;
       if (key === 'clear') el.answer.value = '';
       else if (key === 'back') el.answer.value = el.answer.value.slice(0,-1);
-      else if (el.answer.value.length < 2) el.answer.value += key;
+      else if (el.answer.value.length < String(current.x + current.y).length && /^\d$/.test(key)) el.answer.value += key;
       el.answer.classList.remove('ok','bad'); scheduleCheck();
     });
     $$('.strategy-btn').forEach(b => b.addEventListener('click', () => chooseStrategy(b.dataset.strategy)));
