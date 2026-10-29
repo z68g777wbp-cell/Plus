@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f8fc">
+  <title>Plus-Lernspiel – Rechenstrategien</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">Plus-Lernspiel</div>
+    <div class="level-select" role="group" aria-label="Level auswählen">
+      <button class="level-btn active" data-level="1">Level 1 · ZR 6</button>
+      <button class="level-btn" data-level="2">Level 2 · ZR 10</button>
+      <button class="level-btn" data-level="3">Level 3 · ZR 20</button>
+    </div>
+    <button id="leaveBtn" class="leave-btn" title="Durchgang beenden" aria-label="Durchgang beenden – offene Tür">⇥</button>
+  </header>
+
+  <main id="game">
+    <section class="board-panel" aria-label="Punktefeld und Animation">
+      <div id="pointsWrap" class="points-wrap">
+        <div id="pointsField" class="points-field" aria-label="20er-Feld"></div>
+        <div id="redFrame" class="frame red-frame" aria-hidden="true"></div>
+        <div id="greenFrame" class="frame green-frame" aria-hidden="true"></div>
+        <div id="fadeMask" class="fade-mask" aria-hidden="true"></div>
+        <div id="labelTop" class="board-label" aria-hidden="true"></div>
+        <div id="labelBottom" class="board-label" aria-hidden="true"></div>
+      </div>
+      <div id="strategyHint" class="strategy-hint" aria-live="polite"></div>
+    </section>
+
+    <section class="work-panel" aria-label="Rechenaufgabe">
+      <div class="progress-row"><span id="progressText">Aufgabe 1 von 10</span><span id="progressDots" aria-hidden="true"></span></div>
+      <div class="equation-row">
+        <div id="taskText" class="task-text">2 + 3</div><div class="equals">=</div>
+        <input id="answerInput" class="answer-input" aria-label="Ergebnis" inputmode="none" autocomplete="off" readonly>
+      </div>
+      <div id="keypad" class="keypad" aria-label="Ziffernfeld">
+        <button class="key-btn" data-key="1">1</button><button class="key-btn" data-key="2">2</button><button class="key-btn" data-key="3">3</button>
+        <button class="key-btn" data-key="4">4</button><button class="key-btn" data-key="5">5</button><button class="key-btn" data-key="6">6</button>
+        <button class="key-btn" data-key="7">7</button><button class="key-btn" data-key="8">8</button><button class="key-btn" data-key="9">9</button>
+        <button class="key-btn utility" data-key="clear" aria-label="Eingabe löschen">C</button><button class="key-btn" data-key="0">0</button><button class="key-btn utility" data-key="back" aria-label="Letzte Ziffer löschen">⌫</button>
+      </div>
+      <div class="strategy-area" id="strategyArea" hidden>
+        <div class="strategy-title">Welche Strategie passt?</div>
+        <div class="strategy-buttons">
+          <button class="strategy-btn" data-strategy="double"><span>🦋</span>Verdoppeln</button>
+          <button class="strategy-btn" data-strategy="hand"><span>✋</span>Handaufgabe</button>
+          <button class="strategy-btn" data-strategy="nine"><span>9</span>9er-Trick</button>
+          <button class="strategy-btn" data-strategy="ten"><span>10</span>10er-Stopp</button>
+          <button class="strategy-btn" data-strategy="giant"><span>🧍</span>Riesen und Zwerg</button>
+        </div>
+      </div>
+      <div class="bottom-row"><span id="feedback" role="status" aria-live="polite"></span><button id="nextBtn" class="next-btn" hidden>Weiter</button></div>
+    </section>
+  </main>
+
+  <section id="resultPanel" class="result-panel" hidden aria-live="polite">
+    <div id="resultCelebration" class="celebration" aria-hidden="true"></div>
+    <div id="resultScore" class="result-score">18 von 20 Aufgaben richtig.</div>
+    <div id="resultTime" class="result-time">Zeit: 2:34</div>
+    <div id="resultDetails" class="result-details"></div>
+    <div class="result-actions"><button id="againBtn" class="next-btn">Noch einmal</button><button id="resultLevelBtn" class="secondary-btn">Level wählen</button></div>
+  </section>
+  <footer class="footnote">Die Zeit und die Ergebnisse werden für diesen Durchgang im Hintergrund erfasst.</footer>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
