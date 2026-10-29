@@ -102,9 +102,22 @@
   }
   function clearTimers() { if (checkTimer) clearTimeout(checkTimer); checkTimer = null; if (starsTimer) clearTimeout(starsTimer); starsTimer = null; }
   function buildDots() {
+    // The twenty empty cells are the static background. Counters are a separate overlay.
     el.pointsField.replaceChildren();
     for (let i = 0; i < 20; i++) {
-      const dot = document.createElement('span'); dot.className = 'dot'; dot.dataset.index = String(i); el.pointsField.append(dot);
+      const cell = document.createElement('span');
+      cell.className = 'field-cell';
+      cell.setAttribute('aria-hidden', 'true');
+      el.pointsField.append(cell);
+    }
+    const layer = document.createElement('div');
+    layer.id = 'pointsLayer';
+    layer.className = 'points-layer';
+    el.pointsWrap.append(layer);
+    for (let i = 0; i < 20; i++) {
+      const dot = document.createElement('span');
+      dot.className = 'dot'; dot.dataset.index = String(i);
+      layer.append(dot);
     }
   }
   function clearDotPlacement() { $$('.dot').forEach(d => { d.style.gridColumn = ''; d.style.gridRow = ''; }); }
@@ -138,21 +151,45 @@
       for(let i=0;i<small;i++){placeDot(big+i,2,i+1);dots[big+i].classList.add('red');}
     }
   }
-  async function moveOneCounter(fromIndex, toIndex, token, duration=900) {
-    const dots=$$('.dot'), from=dots[fromIndex], to=dots[toIndex];
-    if(!from || !to || token!==animationToken) return;
-    const carriedColor = ['red','blue','green'].find(c => from.classList.contains(c));
-    const a=from.getBoundingClientRect(), b=to.getBoundingClientRect();
-    const dx=(b.left+b.width/2)-(a.left+a.width/2), dy=(b.top+b.height/2)-(a.top+a.height/2);
-    from.style.zIndex='6';
-    if (from.animate) {
-      const anim=from.animate([{transform:'translate(0,0)'},{transform:`translate(${dx}px,${dy}px)`}],{duration,easing:'ease-in-out',fill:'forwards'});
-      await anim.finished.catch(()=>{});
-    } else { from.style.transform=`translate(${dx}px,${dy}px)`; await sleep(duration); }
-    if(token!==animationToken) return;
-    from.style.zIndex=''; from.style.transform='';
-    if (carriedColor) to.classList.add(carriedColor);
-    from.classList.remove('red','blue','green');
+  async function moveCounterToCell(dotIndex, targetRow, targetCol, token, duration = 900) {
+    const dots = $$('.dot'), dot = dots[dotIndex];
+    if (!dot || token !== animationToken) return;
+    const layer = $('#pointsLayer');
+    const field = layer.getBoundingClientRect();
+    const styles = getComputedStyle(layer);
+    const paddingLeft = parseFloat(styles.paddingLeft) || 0;
+    const paddingTop = parseFloat(styles.paddingTop) || 0;
+    const gapX = parseFloat(styles.columnGap) || 0;
+    const gapY = parseFloat(styles.rowGap) || 0;
+    const cellW = (field.width - paddingLeft * 2 - gapX * 9) / 10;
+    const cellH = (field.height - paddingTop * 2 - gapY) / 2;
+    const targetX = field.left + paddingLeft + (targetCol - 1) * (cellW + gapX) + cellW / 2;
+    const targetY = field.top + paddingTop + (targetRow - 1) * (cellH + gapY) + cellH / 2;
+    const from = dot.getBoundingClientRect();
+    const dx = targetX - (from.left + from.width / 2);
+    const dy = targetY - (from.top + from.height / 2);
+    dot.style.zIndex = '6';
+    if (dot.animate) {
+      const anim = dot.animate(
+        [{ transform: 'translate(0,0)' }, { transform: `translate(${dx}px,${dy}px)` }],
+        { duration, easing: 'ease-in-out', fill: 'forwards' }
+      );
+      await anim.finished.catch(() => {});
+    } else {
+      dot.style.transform = `translate(${dx}px,${dy}px)`;
+      await sleep(duration);
+    }
+    if (token !== animationToken) return;
+    dot.style.zIndex = '';
+    dot.style.transform = '';
+    dot.style.gridRow = String(targetRow);
+    dot.style.gridColumn = String(targetCol);
+  }
+  async function coverAnimation(token) {
+    await sleep(1500);
+    if (token !== animationToken) return;
+    // The yellow cover stays in place while the child solves the equation.
+    el.fadeMask.style.opacity = '1';
   }
   function resetBoard() {
     $$('.dot').forEach(d => { d.className = 'dot'; d.style.opacity = ''; d.style.transform = ''; });
@@ -205,8 +242,10 @@
     el.strategyArea.hidden = level !== 3;
     el.taskText.style.display = ''; $('.equals').style.display = ''; el.answer.style.display = '';
     if (level === 3) {
-      setDotsForLevel(current.x, current.y, 3);
-      // Strategies are always available; applicability is explained with spoken feedback.
+      // Keep the static 20-cell field empty until a strategy button is selected.
+      animationToken++;
+      clearDotPlacement();
+      $$('.dot').forEach(d => { d.className = 'dot'; d.style.opacity = ''; });
     } else animateIntro(current);
     taskStartAt = Date.now(); updateProgress();
   }
@@ -220,20 +259,17 @@
           // Move one blue counter from the larger group into the next EMPTY red-row cell.
           // The original blue/red counts remain constant throughout the animation.
           const big=Math.max(x,y), small=Math.min(x,y);
-          const targetIndex=x+y; // first unused counter node
-          placeDot(targetIndex, 2, small+1);
-          await moveOneCounter(big-1, targetIndex, token, 900);
+          const movedIndex = big - 1;
+          await moveCounterToCell(movedIndex, 2, small + 1, token, 900);
           if(token!==animationToken) return;
           const movedGroup = [
             ...Array.from({length:small},(_,i)=>big+i),
-            targetIndex
+            movedIndex
           ];
           frameDotIndexes(el.redFrame, movedGroup);
-          await sleep(1000);
         } else {
           // For equal numbers or a difference of one, show the vertical grouping.
           frameDotIndexes(el.redFrame, Array.from({length:Math.min(x,y)},(_,i)=>i));
-          await sleep(1000);
         }
       } else {
         // Bigger addend first. Frame the part above five AND the smaller addend.
@@ -248,6 +284,7 @@
         await sleep(1500);
       }
     }
+    if (token === animationToken) await coverAnimation(token);
     if (token===animationToken) {
       el.redFrame.style.opacity='0'; el.greenFrame.style.opacity='0';
       el.labelTop.textContent=''; el.labelBottom.textContent='';
@@ -328,9 +365,14 @@
     } else if (strategy === 'hand' && Core.strategyValidity('hand', x, y)) {
       const fiveIndices = [];
       const restIndices = [];
-      // The five is the first five counters of a summand that contains at least five.
-      const firstFiveStart = x >= 5 ? 0 : x;
-      for (let i = 0; i < 5; i++) fiveIndices.push(firstFiveStart + i);
+      const big = Math.max(x, y), small = Math.min(x, y);
+      // Counters are laid out big addend first, then small addend.
+      for (let i = 0; i < 5; i++) fiveIndices.push(i);
+      if (big > 5 && small >= 5) {
+        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
+      } else if (small === 5) {
+        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
+      }
       for (let i = 0; i < Math.min(20, sum); i++) if (!fiveIndices.includes(i)) restIndices.push(i);
       frameDotIndexes(el.redFrame, fiveIndices);
       frameDotIndexes(el.greenFrame, restIndices);
@@ -355,7 +397,7 @@
     }
     await sleep(1500);
     if (token !== animationToken) return;
-    resetBoard(); setDotsForLevel(x, y, level);
+    el.fadeMask.style.opacity = '1';
     el.strategyHint.textContent = `Rechne: ${x} + ${y}.`;
   }
   async function chooseStrategy(name) {
@@ -368,28 +410,33 @@
     lastChosenStrategy = name;
     const token = ++animationToken;
     const x = current.x, y = current.y, sum = x+y;
-    setDotsForLevel(x,y,3); await sleep(250); if (token !== animationToken) return;
+    setDotsForLevel(x,y,3); if (token !== animationToken) return;
     if (name === 'double') {
       const smaller = Math.min(x,y); frameDots(el.redFrame, 0, smaller); el.labelTop.textContent = `${smaller} + ${smaller}`;
       if (Math.abs(x-y) === 1) el.labelBottom.textContent = '+ 1';
       await sleep(1500);
       if (token !== animationToken) return;
-      el.fadeMask.style.opacity = '.96'; await sleep(250); el.fadeMask.style.opacity = '0';
+      
     } else if (name === 'hand') {
       const fiveIndices = [];
       const restIndices = [];
-      const firstFiveStart = x >= 5 ? 0 : x;
-      for (let i = 0; i < 5; i++) fiveIndices.push(firstFiveStart + i);
+      const big = Math.max(x, y), small = Math.min(x, y);
+      // Counters are laid out big addend first, then small addend.
+      for (let i = 0; i < 5; i++) fiveIndices.push(i);
+      if (big > 5 && small >= 5) {
+        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
+      } else if (small === 5) {
+        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
+      }
       for (let i = 0; i < Math.min(20, sum); i++) if (!fiveIndices.includes(i)) restIndices.push(i);
       frameDotIndexes(el.redFrame, fiveIndices); frameDotIndexes(el.greenFrame, restIndices);
       el.labelTop.textContent = '5 + 5 = 10'; el.labelBottom.textContent = `${Math.max(0,x-5)} + ${Math.max(0,y-5)}`;
       await sleep(1500);
     } else if (name === 'nine') {
       const other = x === 9 ? y : x;
-      const nineIndex = x === 9 ? 19 : x + 9;
-      const donorIndex = x === 9 ? 9 + other - 1 : x - 1;
-      placeDot(nineIndex, x === 9 ? 2 : 2, 10);
-      await moveOneCounter(donorIndex, nineIndex, token, 900);
+      const big = Math.max(x,y), small = Math.min(x,y);
+      const donorIndex = big + small - 1;
+      await moveCounterToCell(donorIndex, 1, 10, token, 900);
       if(token!==animationToken) return;
       frameDots(el.redFrame,0,10); el.labelTop.textContent = '9 + 1 = 10'; el.labelBottom.textContent = `10 + ${other-1} = ${sum}`;
       await sleep(1500);
@@ -400,9 +447,7 @@
       const bigCount = big;
       for(let i=0;i<transfer;i++) {
         const sourceIndex = smallStartsAt + small - 1 - i;
-        const targetIndex = x+y+i;
-        placeDot(targetIndex, bigRow, bigCount+i+1);
-        await moveOneCounter(sourceIndex, targetIndex, token, 650);
+        await moveCounterToCell(sourceIndex, bigRow, bigCount+i+1, token, 650);
         if(token!==animationToken) return;
       }
       frameDots(el.redFrame, 0, 10); el.labelTop.textContent = `${big} + ${transfer} = 10`; el.labelBottom.textContent = `10 + ${small-transfer} = ${sum}`;
@@ -413,7 +458,8 @@
       await sleep(1500);
     }
     if (token !== animationToken) return;
-    resetBoard(); setDots(x,y); el.strategyHint.textContent = `${cfg.name}: Jetzt rechne ${x} + ${y}.`;
+    el.fadeMask.style.opacity = '1';
+    el.strategyHint.textContent = `${cfg.name}: Jetzt rechne ${x} + ${y}.`;
   }
   function formatTime(seconds) { const s = Math.max(0, Math.floor(seconds)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
   function makeStars() {
