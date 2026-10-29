@@ -119,12 +119,11 @@
     const dots = $$('.dot');
     dots.forEach(d => d.classList.remove('red','blue','green'));
     if (levelNumber < 3) {
-      const diff = Math.abs(x-y);
+      const big=Math.max(x,y), small=Math.min(x,y), diff=big-small;
       if (diff <= 2) {
-        for (let i=0;i<x;i++){ placeDot(i,1,i+1); dots[i].classList.add('blue'); }
-        for (let i=0;i<y;i++){ placeDot(x+i,2,i+1); dots[x+i].classList.add('red'); }
+        for (let i=0;i<big;i++){ placeDot(i,1,i+1); dots[i].classList.add('blue'); }
+        for (let i=0;i<small;i++){ placeDot(big+i,2,i+1); dots[big+i].classList.add('red'); }
       } else {
-        const big=Math.max(x,y), small=Math.min(x,y);
         for(let i=0;i<big;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
         for(let i=0;i<small;i++){placeDot(big+i,1,big+i+1);dots[big+i].classList.add('red');}
       }
@@ -132,15 +131,17 @@
       const big=Math.max(x,y), small=Math.min(x,y);
       for(let i=0;i<10;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
       for(let i=0;i<big-10;i++){placeDot(10+i,2,i+1);dots[10+i].classList.add('blue');}
-      for(let i=0;i<small;i++){placeDot(big,2,big-10+i+1);dots[big+i].classList.add('red');}
+      for(let i=0;i<small;i++){placeDot(big+i,2,big-10+i+1);dots[big+i].classList.add('red');}
     } else {
-      for(let i=0;i<x;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
-      for(let i=0;i<y;i++){placeDot(x+i,2,i+1);dots[x+i].classList.add('red');}
+      const big=Math.max(x,y), small=Math.min(x,y);
+      for(let i=0;i<big;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
+      for(let i=0;i<small;i++){placeDot(big+i,2,i+1);dots[big+i].classList.add('red');}
     }
   }
   async function moveOneCounter(fromIndex, toIndex, token, duration=900) {
     const dots=$$('.dot'), from=dots[fromIndex], to=dots[toIndex];
     if(!from || !to || token!==animationToken) return;
+    const carriedColor = ['red','blue','green'].find(c => from.classList.contains(c));
     const a=from.getBoundingClientRect(), b=to.getBoundingClientRect();
     const dx=(b.left+b.width/2)-(a.left+a.width/2), dy=(b.top+b.height/2)-(a.top+a.height/2);
     from.style.zIndex='6';
@@ -150,7 +151,8 @@
     } else { from.style.transform=`translate(${dx}px,${dy}px)`; await sleep(duration); }
     if(token!==animationToken) return;
     from.style.zIndex=''; from.style.transform='';
-    from.classList.remove('blue','red'); to.classList.add('blue');
+    if (carriedColor) to.classList.add(carriedColor);
+    from.classList.remove('red','blue','green');
   }
   function resetBoard() {
     $$('.dot').forEach(d => { d.className = 'dot'; d.style.opacity = ''; d.style.transform = ''; });
@@ -215,29 +217,41 @@
       if (diff <= 2) {
         if (diff === 2) {
           await sleep(1500); if(token!==animationToken) return;
+          // Move one blue counter from the larger group into the next EMPTY red-row cell.
+          // The original blue/red counts remain constant throughout the animation.
           const big=Math.max(x,y), small=Math.min(x,y);
-          const movingIndex = x>y ? x-1 : x+y-1;
-          const targetIndex = x>y ? x : x+y-2;
-          await moveOneCounter(movingIndex,targetIndex,token,900);
+          const targetIndex=x+y; // first unused counter node
+          placeDot(targetIndex, 2, small+1);
+          await moveOneCounter(big-1, targetIndex, token, 900);
           if(token!==animationToken) return;
-          setDotsForLevel(big-1,small+1,level);
-          frameDots(el.redFrame,0,Math.min(big-1,small+1));
+          const movedGroup = [
+            ...Array.from({length:small},(_,i)=>big+i),
+            targetIndex
+          ];
+          frameDotIndexes(el.redFrame, movedGroup);
           await sleep(1000);
         } else {
-          frameDots(el.redFrame,0,Math.min(x,y));
+          // For equal numbers or a difference of one, show the vertical grouping.
+          frameDotIndexes(el.redFrame, Array.from({length:Math.min(x,y)},(_,i)=>i));
           await sleep(1000);
         }
       } else {
-        // Bigger addend first. Frame only its part above five plus the smaller addend.
-        const big=Math.max(x,y), small=Math.min(x,y), extra=big-5;
-        const start=big-1;
-        frameDotIndexes(el.redFrame, Array.from({length: extra+small}, (_,i)=>start+i));
+        // Bigger addend first. Frame the part above five AND the smaller addend.
+        const big=Math.max(x,y), small=Math.min(x,y), extra=Math.max(0,big-5);
+        const indices = [
+          ...Array.from({length:extra},(_,i)=>5+i),
+          ...Array.from({length:small},(_,i)=>big+i)
+        ];
+        frameDotIndexes(el.redFrame, indices);
         el.labelTop.textContent = `${extra} + ${small}`;
         el.labelBottom.textContent = `${small} + ${extra} = ${small+extra}; ${small+extra} + 5 = ${x+y}`;
         await sleep(1500);
       }
     }
-    if (token===animationToken) { el.redFrame.style.opacity='0'; el.greenFrame.style.opacity='0'; el.labelTop.textContent=''; el.labelBottom.textContent=''; }
+    if (token===animationToken) {
+      el.redFrame.style.opacity='0'; el.greenFrame.style.opacity='0';
+      el.labelTop.textContent=''; el.labelBottom.textContent='';
+    }
   }
   function pickNext() {
     if (firstAttempts >= Core.LEVELS[level].count) return finishSession(false);
