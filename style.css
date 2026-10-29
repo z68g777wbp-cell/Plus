@@ -53,3 +53,7 @@
 .fade-mask{background:#facc15;opacity:0;z-index:8;border-radius:0;transition:opacity .12s}
 .frame{z-index:7}
 @media(max-width:700px){.points-layer{gap:3px;row-gap:7px;padding:4px}.points-layer .dot{width:86%}#labelTop{top:-2.8em}#labelBottom{top:-1.4em}.board-label{font-size:clamp(11px,2.5vw,17px)}}
+/* Strategy annotations: +1 is printed inside the extra counter, and 10er-Stopp help sits below the field. */
+.points-layer .dot.plus-one{position:relative;color:#fff;font-size:clamp(8px,1.15vw,13px);font-weight:950;display:flex;align-items:center;justify-content:center;z-index:4}
+.points-layer .dot.plus-one::after{content:attr(data-note);display:block;line-height:1;color:#fff;text-shadow:0 1px 2px #7f1d1d}
+#labelBottom.below-board{top:auto;bottom:-2.1em;white-space:nowrap}

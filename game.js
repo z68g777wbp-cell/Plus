@@ -127,27 +127,66 @@
     dot.style.gridRow = String(row);
     dot.style.gridColumn = String(col);
   }
+  function groupIndices(x, y) {
+    return { x: Array.from({length:x}, (_,i)=>i), y: Array.from({length:y}, (_,i)=>x+i),
+      big: x >= y ? Array.from({length:x},(_,i)=>i) : Array.from({length:y},(_,i)=>x+i),
+      small: x >= y ? Array.from({length:y},(_,i)=>x+i) : Array.from({length:x},(_,i)=>i) };
+  }
   function setDotsForLevel(x, y, levelNumber = level, mode = 'intro') {
     resetBoard(); clearDotPlacement();
     const dots = $$('.dot');
     dots.forEach(d => d.classList.remove('red','blue','green'));
-    // Level 1/2: near doubles are shown in two rows; otherwise counters fill left-to-right.
-    // Level 3 starts with a stable left-to-right arrangement. Every counter gets one unique cell.
-    let placements = [];
-    if (levelNumber < 3 && Math.abs(x-y) <= 2) {
-      const firstIsBig = x >= y;
-      const big = Math.max(x,y), small = Math.min(x,y);
-      for (let i=0;i<big;i++) placements.push({index:firstIsBig ? i : x+i, row:1, col:i+1, color:firstIsBig ? (x>=y?'blue':'red') : 'red'});
-      for (let i=0;i<small;i++) placements.push({index:firstIsBig ? big+i : i, row:2, col:i+1, color:firstIsBig ? (x>=y?'red':'blue') : 'blue'});
-      // Ensure original summand colors are retained even when x is the smaller addend.
-      placements = [];
-      for (let i=0;i<x;i++) placements.push({index:i,row:1,col:i+1,color:'blue'});
-      for (let i=0;i<y;i++) placements.push({index:x+i,row:2,col:i+1,color:'red'});
+    const groups = groupIndices(x,y), placements = [];
+    const near = levelNumber < 3 && Math.abs(x-y) <= 2;
+    if (near) {
+      // Keep the addends' colours, but show the larger addend in the first row.
+      const first = x >= y ? groups.x : groups.y;
+      const second = x >= y ? groups.y : groups.x;
+      first.forEach((idx,i)=>placements.push({idx,row:1,col:i+1}));
+      second.forEach((idx,i)=>placements.push({idx,row:2,col:i+1}));
+    } else if (levelNumber < 3) {
+      const first = x >= y ? groups.x : groups.y;
+      const second = x >= y ? groups.y : groups.x;
+      first.forEach((idx,i)=>placements.push({idx,row:1,col:i+1}));
+      second.forEach((idx,i)=>placements.push({idx,row:2,col:i+1}));
     } else {
-      for (let i=0;i<x;i++) placements.push({index:i,row:Math.floor(i/10)+1,col:(i%10)+1,color:'blue'});
-      for (let i=0;i<y;i++) { const n=x+i; placements.push({index:n,row:Math.floor(n/10)+1,col:(n%10)+1,color:'red'}); }
+      // Vertical addend layout. For a giant, its ten sits on row one and its
+      // remainder is followed by the other addend on row two (analogy visible).
+      const first = x >= y ? groups.x : groups.y;
+      const second = x >= y ? groups.y : groups.x;
+      first.forEach((idx,i)=>placements.push({idx,row:Math.floor(i/10)+1,col:(i%10)+1}));
+      const remainder = Math.max(0, first.length-10);
+      second.forEach((idx,i)=>placements.push({idx,row:2,col:remainder+i+1}));
     }
-    placements.forEach(p => { placeDot(p.index,p.row,p.col); dots[p.index].classList.add(p.color); });
+    placements.forEach(p => { placeDot(p.idx,p.row,p.col); dots[p.idx].classList.add(p.idx < x ? 'blue':'red'); });
+  }
+  function indexOfAddendDot(x, y, addend, offset) {
+    const start = addend === 'x' ? 0 : x;
+    return start + offset;
+  }
+  function indexesForLargerRemainder(x,y) {
+    const big = Math.max(x,y), small = Math.min(x,y);
+    const bigStart = x >= y ? 0 : x, smallStart = x >= y ? x : 0;
+    return {big,small,bigStart,smallStart,excess:Array.from({length:Math.max(0,big-5)},(_,i)=>bigStart+5+i),smallIndexes:Array.from({length:small},(_,i)=>smallStart+i)};
+  }
+  function handGroups(x,y) {
+    const g=groupIndices(x,y), five=[], rest=[];
+    if (x === 5 || x > 5) five.push(...g.x.slice(0,5));
+    if (y === 5 || y > 5) five.push(...g.y.slice(0,5));
+    for (const i of [...g.x,...g.y]) if (!five.includes(i)) rest.push(i);
+    return {five,rest};
+  }
+  function clearDotNotes() { $$('.dot').forEach(d=>{d.classList.remove('plus-one'); d.removeAttribute('data-note');}); }
+  function markPlusOne(index) { const dot=$$('.dot')[index]; if(dot){dot.classList.add('plus-one');dot.dataset.note='+1';} }
+  function arrangeNine(x,y) {
+    clearDotPlacement();
+    const g=groupIndices(x,y), nineGroup=x===9?g.x:g.y, otherGroup=x===9?g.y:g.x;
+    nineGroup.forEach((idx,i)=>placeDot(idx,1,i+1));
+    // Leave one counter from the other addend available to complete ten.
+    const donor=otherGroup[otherGroup.length-1];
+    const remaining=otherGroup.filter(i=>i!==donor);
+    remaining.forEach((idx,i)=>placeDot(idx,2,i+1));
+    return {nineGroup,donor};
   }
   async function moveCounterToCell(dotIndex, targetRow, targetCol, token, duration = 900) {
     const dots = $$('.dot'), dot = dots[dotIndex];
@@ -202,9 +241,10 @@
     el.fadeMask.style.opacity = '1';
   }
   function resetBoard() {
+    clearDotNotes();
     $$('.dot').forEach(d => { d.className = 'dot'; d.style.opacity = ''; d.style.transform = ''; });
     [el.redFrame, el.greenFrame].forEach(f => { f.style.opacity = '0'; f.style.left = ''; f.style.top = ''; f.style.width = ''; f.style.height = ''; });
-    el.fadeMask.style.opacity = '0'; el.labelTop.textContent = ''; el.labelBottom.textContent = '';
+    el.fadeMask.style.opacity = '0'; el.labelTop.textContent = ''; el.labelBottom.textContent = ''; el.labelBottom.classList.remove('below-board');
   }
   function setDots(x, y, options = {}) {
     resetBoard();
@@ -227,6 +267,7 @@
     const bottom = Math.max(...rects.map(r => r.bottom)) - wrap.top + 3;
     Object.assign(frame.style, { left: `${left}px`, top: `${top}px`, width: `${right-left}px`, height: `${bottom-top}px`, opacity: '1' });
   }
+  function frameRow(frame, row) { frameDotIndexes(frame, $$('.dot').map((d,i)=>d.style.gridRow===String(row)?i:-1).filter(i=>i>=0)); }
   function frameDotIndexes(frame, indexes) {
     const dots = $$('.dot');
     const selected = [...new Set(indexes)].map(i => dots[i]).filter(Boolean);
@@ -265,29 +306,28 @@
     if (level === 1 || level === 2) {
       if (diff <= 2) {
         if (diff === 2) {
-          await sleep(2000); if(token!==animationToken) return;
-          // Move one blue counter from the larger group into the next EMPTY red-row cell.
+          await sleep(1500); if(token!==animationToken) return;
+          // Move one counter from the larger group into the next EMPTY red-row cell.
           // The original blue/red counts remain constant throughout the animation.
           const big=Math.max(x,y), small=Math.min(x,y);
-          const movedIndex = big - 1;
+          const groups = groupIndices(x,y);
+          const movedIndex = groups.big[big-1];
           await moveCounterToCell(movedIndex, 2, small + 1, token, 900);
           if(token!==animationToken) return;
           const movedGroup = [
-            ...Array.from({length:small},(_,i)=>big+i),
+            ...groups.small.slice(0,small),
             movedIndex
           ];
           frameDotIndexes(el.redFrame, movedGroup);
         } else {
           // For equal numbers or a difference of one, show the vertical grouping.
-          frameDotIndexes(el.redFrame, Array.from({length:Math.min(x,y)},(_,i)=>i));
+          { const groups=groupIndices(x,y); frameDotIndexes(el.redFrame, [...groups.big.slice(0,Math.min(x,y)), ...groups.small.slice(0,Math.min(x,y))]); }
         }
       } else {
         // Bigger addend first. Frame the part above five AND the smaller addend.
-        const big=Math.max(x,y), small=Math.min(x,y), extra=Math.max(0,big-5);
-        const indices = [
-          ...Array.from({length:extra},(_,i)=>5+i),
-          ...Array.from({length:small},(_,i)=>big+i)
-        ];
+        const {big,small,excess,smallIndexes} = indexesForLargerRemainder(x,y);
+        const extra=Math.max(0,big-5);
+        const indices = [...excess, ...smallIndexes];
         frameDotIndexes(el.redFrame, indices);
         el.labelTop.textContent = `${extra} + ${small}`;
         el.labelBottom.textContent = `${small} + ${extra} = ${small+extra}; ${small+extra} + 5 = ${x+y}`;
@@ -369,39 +409,36 @@
     // Nach einem falschen Erstversuch wird die gewählte Strategie als konkrete Rechenhilfe gezeigt.
     if (strategy === 'double' && Core.strategyValidity('double', x, y)) {
       const smaller = Math.min(x, y);
-      frameDotIndexes(el.redFrame, [...Array.from({length: smaller}, (_, i) => i), ...Array.from({length: smaller}, (_, i) => 10 + i)]);
+      const groups = groupIndices(x,y); frameDotIndexes(el.redFrame, [...groups.big.slice(0,smaller), ...groups.small.slice(0,smaller)]);
       el.labelTop.textContent = `${smaller} + ${smaller}`;
-      el.labelBottom.textContent = Math.abs(x-y) === 1 ? `+ 1 = ${sum}` : `= ${sum}`;
+      if (Math.abs(x-y) === 1) markPlusOne(groupIndices(x,y).big[smaller]); el.labelBottom.textContent = `= ${sum}`;
     } else if (strategy === 'hand' && Core.strategyValidity('hand', x, y)) {
-      const fiveIndices = [];
-      const restIndices = [];
-      const big = Math.max(x, y), small = Math.min(x, y);
-      // Counters are laid out big addend first, then small addend.
-      for (let i = 0; i < 5; i++) fiveIndices.push(i);
-      if (big > 5 && small >= 5) {
-        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
-      } else if (small === 5) {
-        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
-      }
-      for (let i = 0; i < Math.min(20, sum); i++) if (!fiveIndices.includes(i)) restIndices.push(i);
+      const {five:fiveIndices,rest:restIndices} = handGroups(x,y);
       frameDotIndexes(el.redFrame, fiveIndices);
       frameDotIndexes(el.greenFrame, restIndices);
       el.labelTop.textContent = '5 + 5 = 10';
       el.labelBottom.textContent = `${Math.max(0, x - 5)} + ${Math.max(0, y - 5)} = ${sum - 10}`;
     } else if (strategy === 'nine' && Core.strategyValidity('nine', x, y)) {
       const other = x === 9 ? y : x;
+      const {nineGroup,donor}=arrangeNine(x,y);
+      await moveCounterToCell(donor,1,10,token,700);
+      if(token!==animationToken) return;
+      frameDotIndexes(el.redFrame,[...nineGroup,donor]);
       el.labelTop.textContent = '9 + 1 = 10';
       el.labelBottom.textContent = `10 + ${other - 1} = ${sum}`;
     } else if (strategy === 'ten' && Core.strategyValidity('ten', x, y)) {
+      el.labelBottom.classList.add('below-board');
       const big = Math.max(x, y), small = Math.min(x, y), transfer = 10 - big;
-      frameDots(el.redFrame, 0, 10);
+      const groups=groupIndices(x,y);
+      for(let i=0;i<transfer;i++){ await moveCounterToCell(groups.small[groups.small.length-1-i],1,big+i+1,token,550); if(token!==animationToken)return; }
+      frameRow(el.redFrame, 1);
       el.labelTop.textContent = `${big} + ${transfer} = 10`;
       el.labelBottom.textContent = `10 + ${small - transfer} = ${sum}`;
     } else if (strategy === 'giant' && Core.strategyValidity('giant', x, y)) {
       const big = Math.max(x, y), small = Math.min(x, y);
       el.labelTop.textContent = `${big - 10} + ${small} = ${big - 10 + small}`;
       el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
-      $$('.dot').slice(0, Math.min(10, big)).forEach(dot => dot.style.opacity = '.3');
+      groupIndices(x,y).big.slice(0,10).forEach(i => { $$('.dot')[i].style.opacity = '.3'; });
     } else {
       el.labelBottom.textContent = `${x} + ${y} = ${sum}`;
     }
@@ -422,51 +459,40 @@
     const x = current.x, y = current.y, sum = x+y;
     setDotsForLevel(x,y,3); if (token !== animationToken) return;
     if (name === 'double') {
-      const smaller = Math.min(x,y); frameDotIndexes(el.redFrame, [...Array.from({length:smaller},(_,i)=>i), ...Array.from({length:smaller},(_,i)=>x+i)]); el.labelTop.textContent = `${smaller} + ${smaller}`;
-      if (Math.abs(x-y) === 1) el.labelBottom.textContent = '+1';
+      const smaller = Math.min(x,y); const groups = groupIndices(x,y); frameDotIndexes(el.redFrame, [...groups.big.slice(0,smaller), ...groups.small.slice(0,smaller)]); el.labelTop.textContent = `${smaller} + ${smaller}`;
+      if (Math.abs(x-y) === 1) markPlusOne(groupIndices(x,y).big[smaller]);
       await sleep(2000);
       if (token !== animationToken) return;
       
     } else if (name === 'hand') {
-      const fiveIndices = [];
-      const restIndices = [];
-      const big = Math.max(x, y), small = Math.min(x, y);
-      // Counters are laid out big addend first, then small addend.
-      for (let i = 0; i < 5; i++) fiveIndices.push(i);
-      if (big > 5 && small >= 5) {
-        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
-      } else if (small === 5) {
-        for (let i = 0; i < 5; i++) fiveIndices.push(big + i);
-      }
-      for (let i = 0; i < Math.min(20, sum); i++) if (!fiveIndices.includes(i)) restIndices.push(i);
+      const {five:fiveIndices,rest:restIndices} = handGroups(x,y);
       frameDotIndexes(el.redFrame, fiveIndices); frameDotIndexes(el.greenFrame, restIndices);
       el.labelTop.textContent = '5 + 5 = 10'; el.labelBottom.textContent = `${Math.max(0,x-5)} + ${Math.max(0,y-5)}`;
       await sleep(2000);
     } else if (name === 'nine') {
       const other = x === 9 ? y : x;
-      const big = Math.max(x,y), small = Math.min(x,y);
-      const donorIndex = big + small - 1;
+      const {nineGroup,donor:donorIndex}=arrangeNine(x,y);
       await moveCounterToCell(donorIndex, 1, 10, token, 900);
       if(token!==animationToken) return;
-      frameDots(el.redFrame,0,10); el.labelTop.textContent = '9 + 1 = 10'; el.labelBottom.textContent = `10 + ${other-1} = ${sum}`;
+      frameDotIndexes(el.redFrame, [...nineGroup, donorIndex]); el.labelTop.textContent = '9 + 1 = 10'; el.labelBottom.textContent = `10 + ${other-1} = ${sum}`;
       await sleep(2000);
     } else if (name === 'ten') {
       const big = Math.max(x,y), small = Math.min(x,y), transfer = 10-big;
-      const smallStartsAt = x < y ? 0 : x;
-      const bigRow = x > y ? 1 : 2;
+      const groups=groupIndices(x,y);
+      const bigRow = 1;
       const bigCount = big;
       for(let i=0;i<transfer;i++) {
-        const sourceIndex = smallStartsAt + small - 1 - i;
+        const sourceIndex = groups.small[groups.small.length - 1 - i];
         await moveCounterToCell(sourceIndex, bigRow, bigCount+i+1, token, 650);
         if(token!==animationToken) return;
       }
-      frameDots(el.redFrame, 0, 10);
+      frameRow(el.redFrame, 1);
       // The 10er-Stopp auxiliary calculation is intentionally withheld until a wrong first attempt.
       el.labelTop.textContent = ''; el.labelBottom.textContent = '';
       await sleep(2000);
     } else if (name === 'giant') {
-      const big = Math.max(x,y), small = Math.min(x,y); setDotsForLevel(x,y,3); $$('.dot').slice(0,10).forEach(dot => dot.style.opacity='.24');
-      el.labelTop.textContent = `${big-10} + ${small}`; el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
+      const big = Math.max(x,y), small = Math.min(x,y); setDotsForLevel(x,y,3); groupIndices(x,y).big.slice(0,10).forEach(i => { $$('.dot')[i].style.opacity='.24'; });
+      el.labelTop.textContent = `${big-10} + ${small} = ${big-10+small}`; el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
       await sleep(2000);
     }
     if (token !== animationToken) return;

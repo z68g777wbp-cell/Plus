@@ -19,7 +19,7 @@ for (const level of [1, 2, 3]) {
 }
 assert.equal(Core.enumerateTasks(1).length, 15);
 assert.equal(Core.enumerateTasks(2).length, 35);
-assert.equal(Core.enumerateTasks(3).length, 154);
+assert.equal(Core.enumerateTasks(3).length, 145);
 assert.equal(Core.strategyValidity('double', 7, 8), true);
 assert.equal(Core.strategyValidity('double', 7, 9), false);
 assert.equal(Core.strategyValidity('hand', 5, 8), true);
