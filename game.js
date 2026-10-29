@@ -107,6 +107,51 @@
       const dot = document.createElement('span'); dot.className = 'dot'; dot.dataset.index = String(i); el.pointsField.append(dot);
     }
   }
+  function clearDotPlacement() { $$('.dot').forEach(d => { d.style.gridColumn = ''; d.style.gridRow = ''; }); }
+  function placeDot(dotIndex, row, col) {
+    const dot = $$('.dot')[dotIndex];
+    if (!dot) return;
+    dot.style.gridRow = String(row);
+    dot.style.gridColumn = String(col);
+  }
+  function setDotsForLevel(x, y, levelNumber = level, mode = 'intro') {
+    resetBoard(); clearDotPlacement();
+    const dots = $$('.dot');
+    dots.forEach(d => d.classList.remove('red','blue','green'));
+    if (levelNumber < 3) {
+      const diff = Math.abs(x-y);
+      if (diff <= 2) {
+        for (let i=0;i<x;i++){ placeDot(i,1,i+1); dots[i].classList.add('blue'); }
+        for (let i=0;i<y;i++){ placeDot(x+i,2,i+1); dots[x+i].classList.add('red'); }
+      } else {
+        const big=Math.max(x,y), small=Math.min(x,y);
+        for(let i=0;i<big;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
+        for(let i=0;i<small;i++){placeDot(big+i,1,big+i+1);dots[big+i].classList.add('red');}
+      }
+    } else if (Math.max(x,y)>10) {
+      const big=Math.max(x,y), small=Math.min(x,y);
+      for(let i=0;i<10;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
+      for(let i=0;i<big-10;i++){placeDot(10+i,2,i+1);dots[10+i].classList.add('blue');}
+      for(let i=0;i<small;i++){placeDot(big,2,big-10+i+1);dots[big+i].classList.add('red');}
+    } else {
+      for(let i=0;i<x;i++){placeDot(i,1,i+1);dots[i].classList.add('blue');}
+      for(let i=0;i<y;i++){placeDot(x+i,2,i+1);dots[x+i].classList.add('red');}
+    }
+  }
+  async function moveOneCounter(fromIndex, toIndex, token, duration=900) {
+    const dots=$$('.dot'), from=dots[fromIndex], to=dots[toIndex];
+    if(!from || !to || token!==animationToken) return;
+    const a=from.getBoundingClientRect(), b=to.getBoundingClientRect();
+    const dx=(b.left+b.width/2)-(a.left+a.width/2), dy=(b.top+b.height/2)-(a.top+a.height/2);
+    from.style.zIndex='6';
+    if (from.animate) {
+      const anim=from.animate([{transform:'translate(0,0)'},{transform:`translate(${dx}px,${dy}px)`}],{duration,easing:'ease-in-out',fill:'forwards'});
+      await anim.finished.catch(()=>{});
+    } else { from.style.transform=`translate(${dx}px,${dy}px)`; await sleep(duration); }
+    if(token!==animationToken) return;
+    from.style.zIndex=''; from.style.transform='';
+    from.classList.remove('blue','red'); to.classList.add('blue');
+  }
   function resetBoard() {
     $$('.dot').forEach(d => { d.className = 'dot'; d.style.opacity = ''; d.style.transform = ''; });
     [el.redFrame, el.greenFrame].forEach(f => { f.style.opacity = '0'; f.style.left = ''; f.style.top = ''; f.style.width = ''; f.style.height = ''; });
@@ -133,6 +178,18 @@
     const bottom = Math.max(...rects.map(r => r.bottom)) - wrap.top + 3;
     Object.assign(frame.style, { left: `${left}px`, top: `${top}px`, width: `${right-left}px`, height: `${bottom-top}px`, opacity: '1' });
   }
+  function frameDotIndexes(frame, indexes) {
+    const dots = $$('.dot');
+    const selected = [...new Set(indexes)].map(i => dots[i]).filter(Boolean);
+    if (!selected.length) return;
+    const wrap = el.pointsWrap.getBoundingClientRect();
+    const rects = selected.map(d => d.getBoundingClientRect());
+    const left = Math.min(...rects.map(r => r.left)) - wrap.left - 3;
+    const top = Math.min(...rects.map(r => r.top)) - wrap.top - 3;
+    const right = Math.max(...rects.map(r => r.right)) - wrap.left + 3;
+    const bottom = Math.max(...rects.map(r => r.bottom)) - wrap.top + 3;
+    Object.assign(frame.style, { left: `${left}px`, top: `${top}px`, width: `${right-left}px`, height: `${bottom-top}px`, opacity: '1' });
+  }
   function updateProgress() {
     const total = Core.LEVELS[level].count;
     el.progressText.textContent = `Aufgabe ${Math.min(firstAttempts + 1, total)} von ${total}`;
@@ -146,37 +203,41 @@
     el.strategyArea.hidden = level !== 3;
     el.taskText.style.display = ''; $('.equals').style.display = ''; el.answer.style.display = '';
     if (level === 3) {
-      setDots(current.x, current.y);
+      setDotsForLevel(current.x, current.y, 3);
       // Strategies are always available; applicability is explained with spoken feedback.
     } else animateIntro(current);
     taskStartAt = Date.now(); updateProgress();
   }
   async function animateIntro(task) {
-    const token = ++animationToken; setDots(task.x, task.y); await sleep(120);
-    if (token !== animationToken) return;
-    if (level === 1) {
-      if (Math.abs(task.x-task.y) <= 1) {
-        frameDots(el.redFrame, 0, Math.min(task.x,task.y)); await sleep(850);
-      } else if (Math.abs(task.x-task.y) === 2) {
-        const big = Math.max(task.x,task.y), small = Math.min(task.x,task.y);
-        const dots = $$('.dot');
-        const bigIsRed = task.x > task.y;
-        const movingDot = dots[(bigIsRed ? task.x : task.x + task.y) - 1];
-        if (movingDot) { movingDot.classList.add('moving'); movingDot.style.transform = 'translate(0,-8px)'; }
-        el.labelTop.textContent = `${big} → ${big-1} + ${small+1}`; await sleep(650);
-        if (movingDot) { movingDot.classList.remove('moving'); movingDot.style.transform = ''; }
-        frameDots(el.redFrame, 0, small+1); await sleep(850);
-      }
-    } else if (level === 2) {
-      if (task.x === 5 || task.y === 5) {
-        el.labelTop.textContent = '5'; el.labelBottom.textContent = String(task.x === 5 ? task.y : task.x); await sleep(800);
-      } else if (task.x > 5 || task.y > 5) {
-        frameDots(el.redFrame, 5, 5); await sleep(850);
-      } else if (Math.abs(task.x-task.y) <= 2) {
-        frameDots(el.redFrame, 0, Math.min(task.x,task.y)); await sleep(850);
+    const token = ++animationToken, x=task.x, y=task.y, diff=Math.abs(x-y);
+    setDotsForLevel(x,y,level);
+    if (level === 1 || level === 2) {
+      if (diff <= 2) {
+        if (diff === 2) {
+          await sleep(1500); if(token!==animationToken) return;
+          const big=Math.max(x,y), small=Math.min(x,y);
+          const movingIndex = x>y ? x-1 : x+y-1;
+          const targetIndex = x>y ? x : x+y-2;
+          await moveOneCounter(movingIndex,targetIndex,token,900);
+          if(token!==animationToken) return;
+          setDotsForLevel(big-1,small+1,level);
+          frameDots(el.redFrame,0,Math.min(big-1,small+1));
+          await sleep(1000);
+        } else {
+          frameDots(el.redFrame,0,Math.min(x,y));
+          await sleep(1000);
+        }
+      } else {
+        // Bigger addend first. Frame only its part above five plus the smaller addend.
+        const big=Math.max(x,y), small=Math.min(x,y), extra=big-5;
+        const start=big-1;
+        frameDotIndexes(el.redFrame, Array.from({length: extra+small}, (_,i)=>start+i));
+        el.labelTop.textContent = `${extra} + ${small}`;
+        el.labelBottom.textContent = `${small} + ${extra} = ${small+extra}; ${small+extra} + 5 = ${x+y}`;
+        await sleep(1500);
       }
     }
-    if (token === animationToken) { el.redFrame.style.opacity = '0'; el.labelTop.textContent = ''; el.labelBottom.textContent = ''; }
+    if (token===animationToken) { el.redFrame.style.opacity='0'; el.greenFrame.style.opacity='0'; el.labelTop.textContent=''; el.labelBottom.textContent=''; }
   }
   function pickNext() {
     if (firstAttempts >= Core.LEVELS[level].count) return finishSession(false);
@@ -240,7 +301,7 @@
   }
   async function runStrategyHelp(task, token) {
     const x = task.x, y = task.y, sum = x + y;
-    setDots(x, y);
+    setDotsForLevel(x, y, 3);
     await sleep(250);
     if (token !== animationToken) return;
     const strategy = lastChosenStrategy;
@@ -251,8 +312,14 @@
       el.labelTop.textContent = `${smaller} + ${smaller}`;
       el.labelBottom.textContent = Math.abs(x-y) === 1 ? `+ 1 = ${sum}` : `= ${sum}`;
     } else if (strategy === 'hand' && Core.strategyValidity('hand', x, y)) {
-      frameDots(el.redFrame, 0, 5);
-      if (sum > 10) frameDots(el.greenFrame, 5, sum - 10);
+      const fiveIndices = [];
+      const restIndices = [];
+      // The five is the first five counters of a summand that contains at least five.
+      const firstFiveStart = x >= 5 ? 0 : x;
+      for (let i = 0; i < 5; i++) fiveIndices.push(firstFiveStart + i);
+      for (let i = 0; i < Math.min(20, sum); i++) if (!fiveIndices.includes(i)) restIndices.push(i);
+      frameDotIndexes(el.redFrame, fiveIndices);
+      frameDotIndexes(el.greenFrame, restIndices);
       el.labelTop.textContent = '5 + 5 = 10';
       el.labelBottom.textContent = `${Math.max(0, x - 5)} + ${Math.max(0, y - 5)} = ${sum - 10}`;
     } else if (strategy === 'nine' && Core.strategyValidity('nine', x, y)) {
@@ -274,7 +341,7 @@
     }
     await sleep(1500);
     if (token !== animationToken) return;
-    resetBoard(); setDots(x, y);
+    resetBoard(); setDotsForLevel(x, y, level);
     el.strategyHint.textContent = `Rechne: ${x} + ${y}.`;
   }
   async function chooseStrategy(name) {
@@ -287,7 +354,7 @@
     lastChosenStrategy = name;
     const token = ++animationToken;
     const x = current.x, y = current.y, sum = x+y;
-    setDots(x,y); await sleep(250); if (token !== animationToken) return;
+    setDotsForLevel(x,y,3); await sleep(250); if (token !== animationToken) return;
     if (name === 'double') {
       const smaller = Math.min(x,y); frameDots(el.redFrame, 0, smaller); el.labelTop.textContent = `${smaller} + ${smaller}`;
       if (Math.abs(x-y) === 1) el.labelBottom.textContent = '+ 1';
@@ -295,19 +362,39 @@
       if (token !== animationToken) return;
       el.fadeMask.style.opacity = '.96'; await sleep(250); el.fadeMask.style.opacity = '0';
     } else if (name === 'hand') {
-      frameDots(el.redFrame, 0, 5); frameDots(el.greenFrame, 5, Math.max(0,sum-10));
+      const fiveIndices = [];
+      const restIndices = [];
+      const firstFiveStart = x >= 5 ? 0 : x;
+      for (let i = 0; i < 5; i++) fiveIndices.push(firstFiveStart + i);
+      for (let i = 0; i < Math.min(20, sum); i++) if (!fiveIndices.includes(i)) restIndices.push(i);
+      frameDotIndexes(el.redFrame, fiveIndices); frameDotIndexes(el.greenFrame, restIndices);
       el.labelTop.textContent = '5 + 5 = 10'; el.labelBottom.textContent = `${Math.max(0,x-5)} + ${Math.max(0,y-5)}`;
       await sleep(1500);
     } else if (name === 'nine') {
-      const nine = x === 9 ? x : y, other = x === 9 ? y : x;
-      setDots(10, Math.max(0,other-1)); el.labelTop.textContent = '10'; el.labelBottom.textContent = `${other} − 1`;
+      const other = x === 9 ? y : x;
+      const nineIndex = x === 9 ? 19 : x + 9;
+      const donorIndex = x === 9 ? 9 + other - 1 : x - 1;
+      placeDot(nineIndex, x === 9 ? 2 : 2, 10);
+      await moveOneCounter(donorIndex, nineIndex, token, 900);
+      if(token!==animationToken) return;
+      frameDots(el.redFrame,0,10); el.labelTop.textContent = '9 + 1 = 10'; el.labelBottom.textContent = `10 + ${other-1} = ${sum}`;
       await sleep(1500);
     } else if (name === 'ten') {
       const big = Math.max(x,y), small = Math.min(x,y), transfer = 10-big;
-      setDots(Math.min(10,big+transfer), Math.max(0,small-transfer)); frameDots(el.redFrame, 0, 10); el.labelBottom.textContent = `${big} + ${transfer} + ${small-transfer}`;
+      const smallStartsAt = x < y ? 0 : x;
+      const bigRow = x > y ? 1 : 2;
+      const bigCount = big;
+      for(let i=0;i<transfer;i++) {
+        const sourceIndex = smallStartsAt + small - 1 - i;
+        const targetIndex = x+y+i;
+        placeDot(targetIndex, bigRow, bigCount+i+1);
+        await moveOneCounter(sourceIndex, targetIndex, token, 650);
+        if(token!==animationToken) return;
+      }
+      frameDots(el.redFrame, 0, 10); el.labelTop.textContent = `${big} + ${transfer} = 10`; el.labelBottom.textContent = `10 + ${small-transfer} = ${sum}`;
       await sleep(1500);
     } else if (name === 'giant') {
-      const big = Math.max(x,y), small = Math.min(x,y); setDots(big-10, small, { fadedStart: 0 });
+      const big = Math.max(x,y), small = Math.min(x,y); setDotsForLevel(x,y,3); $$('.dot').slice(0,10).forEach(dot => dot.style.opacity='.24');
       el.labelTop.textContent = `${big-10} + ${small}`; el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
       await sleep(1500);
     }

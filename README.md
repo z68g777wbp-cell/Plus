@@ -1,32 +1,29 @@
-# Plus-Lernspiel – Rechenstrategien
+# Plus-Lernspiel
 
-Statische HTML/CSS/JavaScript-Anwendung für GitHub Pages. Keine Build-Schritte und keine externen Bibliotheken erforderlich.
+Browserbasiertes Additions-Lernspiel mit drei Zahlenräumen, Ziffernfeld, Strategiekarten und Zwanziger-Feld.
 
-## Starten / GitHub
+## Start
+`index.html` direkt im Browser öffnen oder die Dateien in ein GitHub-Repository hochladen und GitHub Pages aktivieren.
 
-Die ZIP-Datei enthält `index.html`, `style.css` und `game.js` direkt im Stammverzeichnis (ohne übergeordneten Projektordner). Dateien in ein Repository hochladen und GitHub Pages auf den gewünschten Branch/Ordner einstellen. Lokal `index.html` im Browser öffnen.
+## Dateien
+- `index.html` – Oberfläche
+- `style.css` – responsive Darstellung
+- `game.js` – Aufgabenerzeugung, Spiellogik und Animationen
+- `tests/tasks.test.js` – automatisierte Tests der Aufgaben- und Strategieregeln
 
-## Spielumfang
+## Test
+Mit Node.js im Projektordner ausführen:
 
-- Level 1: Zahlenraum 6, 10 Aufgaben pro Block.
-- Level 2: Zahlenraum 10, Summen von 6 bis 10, 10 Aufgaben pro Block.
-- Level 3: Zahlenraum 20, Summen von 10 bis 20, 20 Aufgaben pro Block und fünf Rechenstrategien.
-- Summanden sind immer mindestens 1. Umgekehrte Aufgaben gelten als verschieden (`3 + 4` und `4 + 3`). Innerhalb eines Blocks gibt es keine doppelten Aufgaben.
-- Eingabe über das Ziffernfeld. Die Prüfung wartet auf die erforderliche Anzahl Ziffern und erfolgt dann nach 250 ms.
-- Eine falsche erste Eingabe bleibt als falsch gewertet, auch wenn das Kind die Aufgabe später richtig löst. Falsch gelöste Aufgaben werden später erneut vorgelegt.
-- Zeit pro Aufgabe und Sitzungsverlauf werden lokal im Arbeitsspeicher erfasst. `window.lastPlusSession` stellt nach Ende eine strukturierte Zusammenfassung bereit. Es werden keine Daten an einen Server übertragen oder dauerhaft gespeichert.
-
-## Automatisierte Tests
-
-Voraussetzung: Node.js 18 oder neuer. Im Projektordner ausführen:
-
-```bash
+```sh
 node tests/tasks.test.js
 node --check game.js
 ```
 
-Der Test prüft 500 Durchgänge je Level (insgesamt 1.500 Blöcke), Aufgabenzahl, mathematische Zulässigkeit, Duplikate und Strategieregeln.
+## Hinweise
+Aufgaben, Zeit und Ergebnisse werden während des Durchgangs lokal im Arbeitsspeicher erfasst und in `window.lastPlusSession` bereitgestellt. Es gibt noch keine Benutzerkonten, Serverübertragung oder Lehrer:innen-Dashboard. Browser-/Gerätekompatibilität hängt von der Zielumgebung ab.
 
-## Grenzen der aktuellen statischen Version
 
-Kinderkonten, dauerhafte Speicherung und ein Lehrpersonen-Dashboard benötigen eine spätere authentifizierte Backend-Integration.
+## Ergänzte Darstellungsregeln
+
+- In Level 1/2 bei einem Unterschied von mehr als 2 wird der größere Summand zuerst angeordnet. Rot eingerahmt werden nur der Teil oberhalb von 5 und der kleinere Summand (z. B. 6+2: 1+2). Die Hilfe zeigt zuerst 2+1=3 und danach 3+5=8.
+- Bei der Strategie „Handaufgabe“ erhält der Fünfer einen roten Rahmen und der Rest einen grünen Rahmen.
