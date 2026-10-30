@@ -208,33 +208,42 @@
       if (!found) return;
       targetRow=found.r; targetCol=found.c; targetKey=`${targetRow},${targetCol}`;
     }
-    const layer = $('#pointsLayer');
-    // Der tatsächliche Zielpunkt wird aus der entsprechenden Zelle des statischen
-    // Zwanzigerfeldes gelesen. So stimmen Bewegung und CSS-Abstände exakt überein.
-    const cell = el.pointsField.children[(targetRow - 1) * 10 + (targetCol - 1)];
-    if (!cell) return;
-    const targetRect = cell.getBoundingClientRect();
+    // Measure the destination in the SAME CSS grid as the moving dots.
+    // Measuring the underlying cells is unsafe when their gaps/padding differ
+    // by even a few pixels: the transform can then push a counter beyond the frame.
+    const oldRow = dot.style.gridRow, oldCol = dot.style.gridColumn;
+    dot.style.gridRow = String(targetRow);
+    dot.style.gridColumn = String(targetCol);
+    const targetRect = dot.getBoundingClientRect();
     const targetX = targetRect.left + targetRect.width / 2;
     const targetY = targetRect.top + targetRect.height / 2;
+    dot.style.gridRow = oldRow;
+    dot.style.gridColumn = oldCol;
     const from = dot.getBoundingClientRect();
     const dx = targetX - (from.left + from.width / 2);
     const dy = targetY - (from.top + from.height / 2);
     dot.style.zIndex = '6';
+    let movementAnimation = null;
     if (dot.animate) {
       const anim = dot.animate(
         [{ transform: 'translate(0,0)' }, { transform: `translate(${dx}px,${dy}px)` }],
         { duration, easing: 'ease-in-out', fill: 'forwards' }
       );
+      movementAnimation = anim;
       await anim.finished.catch(() => {});
     } else {
       dot.style.transform = `translate(${dx}px,${dy}px)`;
       await sleep(duration);
     }
     if (token !== animationToken) return;
-    dot.style.zIndex = '';
-    dot.style.transform = '';
+    // Commit the final grid cell before removing the animation effect.
+    // Otherwise fill:'forwards' keeps the old transform and the counter appears
+    // outside the 20-field even though its gridRow/gridColumn are correct.
     dot.style.gridRow = String(targetRow);
     dot.style.gridColumn = String(targetCol);
+    if (movementAnimation) movementAnimation.cancel();
+    dot.style.zIndex = '';
+    dot.style.transform = '';
   }
   async function coverAnimation(token) {
     await sleep(2000);
@@ -572,6 +581,12 @@
   }
   // Small read-only test hook for automated QA; no gameplay state is changed.
   window.__plusLernspielQA = {
+    async runIntroForTest(x, y, levelNumber = 1) {
+      level = levelNumber;
+      current = { x, y };
+      animationToken++;
+      await animateIntro({ x, y });
+    },
     inspectBoard() {
       const dots = $$('.dot').filter(d => d.classList.contains('red') || d.classList.contains('blue') || d.classList.contains('green'));
       const items = dots.map(d => ({index:Number(d.dataset.index), color:d.classList.contains('red')?'red':d.classList.contains('blue')?'blue':'green', row:Number(d.style.gridRow), col:Number(d.style.gridColumn), rect:(()=>{const r=d.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};})()}));
