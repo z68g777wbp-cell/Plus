@@ -41,7 +41,16 @@
     if (!cfg) throw new Error(`Unbekanntes Level: ${level}`);
     const all = enumerateTasks(level);
     if (all.length < cfg.count) throw new Error(`Level ${level}: Nur ${all.length} zulässige Aufgaben für ${cfg.count} benötigte Aufgaben.`);
-    const selected = shuffle(all, random).slice(0, cfg.count);
+    let selected;
+    if (level === 3) {
+      // Jeder 20er-Block enthält 1 bis 5 Riesen-/Zwergenaufgaben.
+      const giants = shuffle(all.filter(t => t.x >= 10 || t.y >= 10), random);
+      const others = shuffle(all.filter(t => t.x < 10 && t.y < 10), random);
+      const giantCount = 1 + Math.floor(random() * 5);
+      selected = shuffle([...giants.slice(0, giantCount), ...others.slice(0, cfg.count - giantCount)], random);
+    } else {
+      selected = shuffle(all, random).slice(0, cfg.count);
+    }
     const seen = new Set();
     for (const t of selected) {
       if (!isAllowedTask(t, level)) throw new Error(`Unzulässige Aufgabe: ${taskKey(t)}`);
@@ -125,7 +134,7 @@
     const dot = $$('.dot')[dotIndex];
     if (!dot) return;
     dot.style.gridRow = String(row);
-    dot.style.gridColumn = String(col);
+    dot.style.gridColumn = String(col <= 5 ? col : col + 1);
   }
   function groupIndices(x, y) {
     return { x: Array.from({length:x}, (_,i)=>i), y: Array.from({length:y}, (_,i)=>x+i),
@@ -201,19 +210,20 @@
     const allDots = $$('.dot');
     const occupied = new Set(allDots.filter((d,i)=>i!==dotIndex && d.style.gridRow && d.style.gridColumn)
       .map(d=>`${d.style.gridRow},${d.style.gridColumn}`));
-    let targetKey = `${targetRow},${targetCol}`;
+    let actualTargetCol = targetCol <= 5 ? targetCol : targetCol + 1;
+    let targetKey = `${targetRow},${actualTargetCol}`;
     if (occupied.has(targetKey)) {
       let found = null;
       for (let r=1;r<=2 && !found;r++) for(let c=1;c<=10;c++) if(!occupied.has(`${r},${c}`)){found={r,c};break;}
       if (!found) return;
-      targetRow=found.r; targetCol=found.c; targetKey=`${targetRow},${targetCol}`;
+      targetRow=found.r; targetCol=found.c <= 6 ? found.c : found.c - 1; actualTargetCol=found.c; targetKey=`${targetRow},${actualTargetCol}`;
     }
     // Measure the destination in the SAME CSS grid as the moving dots.
     // Measuring the underlying cells is unsafe when their gaps/padding differ
     // by even a few pixels: the transform can then push a counter beyond the frame.
     const oldRow = dot.style.gridRow, oldCol = dot.style.gridColumn;
     dot.style.gridRow = String(targetRow);
-    dot.style.gridColumn = String(targetCol);
+    dot.style.gridColumn = String(actualTargetCol);
     const targetRect = dot.getBoundingClientRect();
     const targetX = targetRect.left + targetRect.width / 2;
     const targetY = targetRect.top + targetRect.height / 2;
@@ -240,7 +250,7 @@
     // Otherwise fill:'forwards' keeps the old transform and the counter appears
     // outside the 20-field even though its gridRow/gridColumn are correct.
     dot.style.gridRow = String(targetRow);
-    dot.style.gridColumn = String(targetCol);
+    dot.style.gridColumn = String(actualTargetCol);
     if (movementAnimation) movementAnimation.cancel();
     dot.style.zIndex = '';
     dot.style.transform = '';

@@ -60,3 +60,5 @@
 
 /* Keep the animated counter grid exactly registered to the static twenty-field. */
 .points-layer{inset:0!important;}
+/* Das Zwanzigerfeld hat nach der fünften Spalte einen doppelt breiten grauen Trennbalken. */
+.points-field,.points-layer{grid-template-columns:repeat(5,minmax(0,1fr)) minmax(12px,2fr) repeat(5,minmax(0,1fr));}
