@@ -16,7 +16,7 @@
 .points-field{row-gap:clamp(8px,1.4vw,18px);}
 @media(max-width:700px){.points-field{gap:3px;row-gap:7px;padding:4px}.dot::after{width:min(68%,var(--dot))}}
 .points-field{grid-template-columns:repeat(10,minmax(0,1fr));}
-.dot:nth-child(6),.dot:nth-child(16){margin-left:clamp(8px,1.4vw,18px);}
+/* Overlay dots must align exactly with the static cells; no extra per-dot margins. */
 
 /* Alle fünf Strategiekarten sind in jeder Ansicht gleich breit und gleich hoch. */
 .strategy-buttons{grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch}
@@ -57,3 +57,6 @@
 .points-layer .dot.plus-one{position:relative;color:#fff;font-size:clamp(8px,1.15vw,13px);font-weight:950;display:flex;align-items:center;justify-content:center;z-index:4}
 .points-layer .dot.plus-one::after{content:attr(data-note);display:block;line-height:1;color:#fff;text-shadow:0 1px 2px #7f1d1d}
 #labelBottom.below-board{top:auto;bottom:-2.1em;white-space:nowrap}
+
+/* Keep the animated counter grid exactly registered to the static twenty-field. */
+.points-layer{inset:0!important;}

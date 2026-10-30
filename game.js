@@ -145,10 +145,12 @@
       first.forEach((idx,i)=>placements.push({idx,row:1,col:i+1}));
       second.forEach((idx,i)=>placements.push({idx,row:2,col:i+1}));
     } else if (levelNumber < 3) {
+      // Bei Abstand > 2 stehen beide Summanden nebeneinander in der ersten
+      // Zeile: zuerst der größere Summand, danach der kleinere. Die Farben
+      // bleiben an den ursprünglichen Summanden gebunden.
       const first = x >= y ? groups.x : groups.y;
       const second = x >= y ? groups.y : groups.x;
-      first.forEach((idx,i)=>placements.push({idx,row:1,col:i+1}));
-      second.forEach((idx,i)=>placements.push({idx,row:2,col:i+1}));
+      [...first, ...second].forEach((idx,i)=>placements.push({idx,row:1,col:i+1}));
     } else {
       // Vertical addend layout. For a giant, its ten sits on row one and its
       // remainder is followed by the other addend on row two (analogy visible).
@@ -158,7 +160,7 @@
       const remainder = Math.max(0, first.length-10);
       second.forEach((idx,i)=>placements.push({idx,row:2,col:remainder+i+1}));
     }
-    placements.forEach(p => { placeDot(p.idx,p.row,p.col); dots[p.idx].classList.add(p.idx < x ? 'blue':'red'); });
+    placements.forEach(p => { placeDot(p.idx,p.row,p.col); dots[p.idx].classList.add(groups.x.includes(p.idx) ? 'blue' : 'red'); });
   }
   function indexOfAddendDot(x, y, addend, offset) {
     const start = addend === 'x' ? 0 : x;
@@ -300,7 +302,7 @@
     } else animateIntro(current);
     taskStartAt = Date.now(); updateProgress();
   }
-  async function animateIntro(task) {
+  async function animateIntro(task, showHelp = false) {
     const token = ++animationToken, x=task.x, y=task.y, diff=Math.abs(x-y);
     setDotsForLevel(x,y,level);
     if (level === 1 || level === 2) {
@@ -314,14 +316,16 @@
           const movedIndex = groups.big[big-1];
           await moveCounterToCell(movedIndex, 2, small + 1, token, 900);
           if(token!==animationToken) return;
-          const movedGroup = [
-            ...groups.small.slice(0,small),
-            movedIndex
-          ];
-          frameDotIndexes(el.redFrame, movedGroup);
+          // After moving one counter, both rows represent the same doubled
+          // quantity. Frame all three (or more) counters in BOTH rows, not only
+          // the receiving row. Use actual dot indices so x/y order is irrelevant.
+          const doubled = small + 1;
+          const topRowGroup = groups.big.slice(0, doubled).filter(i => i !== movedIndex);
+          const bottomRowGroup = [...groups.small.slice(0, small), movedIndex];
+          frameDotIndexes(el.redFrame, [...topRowGroup, ...bottomRowGroup]);
         } else {
           // For equal numbers or a difference of one, show the vertical grouping.
-          { const groups=groupIndices(x,y); frameDotIndexes(el.redFrame, [...groups.big.slice(0,Math.min(x,y)), ...groups.small.slice(0,Math.min(x,y))]); }
+          { const groups=groupIndices(x,y); const paired=Math.min(x,y); frameDotIndexes(el.redFrame, [...groups.big.slice(0,paired), ...groups.small.slice(0,paired)]); }
         }
       } else {
         // Bigger addend first. Frame the part above five AND the smaller addend.
@@ -329,8 +333,18 @@
         const extra=Math.max(0,big-5);
         const indices = [...excess, ...smallIndexes];
         frameDotIndexes(el.redFrame, indices);
-        el.labelTop.textContent = `${extra} + ${small}`;
-        el.labelBottom.textContent = `${small} + ${extra}; ${small+extra} + 5`;
+        // The auxiliary calculation is deliberately hidden on the first display.
+        // It is shown only after a wrong first answer, and never reveals the result.
+        if (showHelp) {
+          if (big > 5) {
+            el.labelTop.textContent = `${small} + ${extra}`;
+            el.labelBottom.textContent = `${small} + ${extra} + 5`;
+          } else {
+            // With a five as the larger addend, no decomposition above five exists.
+            el.labelTop.textContent = `${big} + ${small}`;
+            el.labelBottom.textContent = '';
+          }
+        }
         await sleep(2000);
       }
     }
@@ -397,7 +411,7 @@
       el.feedback.textContent = 'Versuche es noch einmal.';
       const token = ++animationToken;
       if (level === 3) runStrategyHelp(current, token);
-      else animateIntro(current);
+      else animateIntro(current, true);
     }
   }
   async function runStrategyHelp(task, token) {
