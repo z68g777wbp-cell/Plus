@@ -186,6 +186,9 @@
     const donor=otherGroup[otherGroup.length-1];
     const remaining=otherGroup.filter(i=>i!==donor);
     remaining.forEach((idx,i)=>placeDot(idx,2,i+1));
+    // Der Spender ist vor dem Start der Bewegung sichtbar und liegt in einem
+    // freien Feld; er darf nie im impliziten Grid außerhalb des Zwanzigerfeldes landen.
+    placeDot(donor,2,remaining.length+1);
     return {nineGroup,donor};
   }
   async function moveCounterToCell(dotIndex, targetRow, targetCol, token, duration = 900) {
@@ -204,16 +207,13 @@
       targetRow=found.r; targetCol=found.c; targetKey=`${targetRow},${targetCol}`;
     }
     const layer = $('#pointsLayer');
-    const field = layer.getBoundingClientRect();
-    const styles = getComputedStyle(layer);
-    const paddingLeft = parseFloat(styles.paddingLeft) || 0;
-    const paddingTop = parseFloat(styles.paddingTop) || 0;
-    const gapX = parseFloat(styles.columnGap) || 0;
-    const gapY = parseFloat(styles.rowGap) || 0;
-    const cellW = (field.width - paddingLeft * 2 - gapX * 9) / 10;
-    const cellH = (field.height - paddingTop * 2 - gapY) / 2;
-    const targetX = field.left + paddingLeft + (targetCol - 1) * (cellW + gapX) + cellW / 2;
-    const targetY = field.top + paddingTop + (targetRow - 1) * (cellH + gapY) + cellH / 2;
+    // Der tatsächliche Zielpunkt wird aus der entsprechenden Zelle des statischen
+    // Zwanzigerfeldes gelesen. So stimmen Bewegung und CSS-Abstände exakt überein.
+    const cell = el.pointsField.children[(targetRow - 1) * 10 + (targetCol - 1)];
+    if (!cell) return;
+    const targetRect = cell.getBoundingClientRect();
+    const targetX = targetRect.left + targetRect.width / 2;
+    const targetY = targetRect.top + targetRect.height / 2;
     const from = dot.getBoundingClientRect();
     const dx = targetX - (from.left + from.width / 2);
     const dy = targetY - (from.top + from.height / 2);
@@ -330,7 +330,7 @@
         const indices = [...excess, ...smallIndexes];
         frameDotIndexes(el.redFrame, indices);
         el.labelTop.textContent = `${extra} + ${small}`;
-        el.labelBottom.textContent = `${small} + ${extra} = ${small+extra}; ${small+extra} + 5 = ${x+y}`;
+        el.labelBottom.textContent = `${small} + ${extra}; ${small+extra} + 5`;
         await sleep(2000);
       }
     }
@@ -411,36 +411,36 @@
       const smaller = Math.min(x, y);
       const groups = groupIndices(x,y); frameDotIndexes(el.redFrame, [...groups.big.slice(0,smaller), ...groups.small.slice(0,smaller)]);
       el.labelTop.textContent = `${smaller} + ${smaller}`;
-      if (Math.abs(x-y) === 1) markPlusOne(groupIndices(x,y).big[smaller]); el.labelBottom.textContent = `= ${sum}`;
+      if (Math.abs(x-y) === 1) markPlusOne(groupIndices(x,y).big[smaller]); el.labelBottom.textContent = '';
     } else if (strategy === 'hand' && Core.strategyValidity('hand', x, y)) {
       const {five:fiveIndices,rest:restIndices} = handGroups(x,y);
       frameDotIndexes(el.redFrame, fiveIndices);
       frameDotIndexes(el.greenFrame, restIndices);
-      el.labelTop.textContent = '5 + 5 = 10';
-      el.labelBottom.textContent = `${Math.max(0, x - 5)} + ${Math.max(0, y - 5)} = ${sum - 10}`;
+      el.labelTop.textContent = '5 + 5';
+      el.labelBottom.textContent = `${Math.max(0, x - 5)} + ${Math.max(0, y - 5)}`;
     } else if (strategy === 'nine' && Core.strategyValidity('nine', x, y)) {
       const other = x === 9 ? y : x;
       const {nineGroup,donor}=arrangeNine(x,y);
       await moveCounterToCell(donor,1,10,token,700);
       if(token!==animationToken) return;
       frameDotIndexes(el.redFrame,[...nineGroup,donor]);
-      el.labelTop.textContent = '9 + 1 = 10';
-      el.labelBottom.textContent = `10 + ${other - 1} = ${sum}`;
+      el.labelTop.textContent = '9 + 1';
+      el.labelBottom.textContent = `10 + ${other - 1}`;
     } else if (strategy === 'ten' && Core.strategyValidity('ten', x, y)) {
       el.labelBottom.classList.add('below-board');
       const big = Math.max(x, y), small = Math.min(x, y), transfer = 10 - big;
       const groups=groupIndices(x,y);
       for(let i=0;i<transfer;i++){ await moveCounterToCell(groups.small[groups.small.length-1-i],1,big+i+1,token,550); if(token!==animationToken)return; }
       frameRow(el.redFrame, 1);
-      el.labelTop.textContent = `${big} + ${transfer} = 10`;
-      el.labelBottom.textContent = `10 + ${small - transfer} = ${sum}`;
+      el.labelTop.textContent = `${big} + ${transfer}`;
+      el.labelBottom.textContent = `10 + ${small - transfer}`;
     } else if (strategy === 'giant' && Core.strategyValidity('giant', x, y)) {
       const big = Math.max(x, y), small = Math.min(x, y);
-      el.labelTop.textContent = `${big - 10} + ${small} = ${big - 10 + small}`;
-      el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
+      el.labelTop.textContent = `${big - 10} + ${small}`;
+      el.labelBottom.textContent = `${big} + ${small}`;
       groupIndices(x,y).big.slice(0,10).forEach(i => { $$('.dot')[i].style.opacity = '.3'; });
     } else {
-      el.labelBottom.textContent = `${x} + ${y} = ${sum}`;
+      el.labelBottom.textContent = `${x} + ${y}`;
     }
     await sleep(2000);
     if (token !== animationToken) return;
@@ -467,14 +467,14 @@
     } else if (name === 'hand') {
       const {five:fiveIndices,rest:restIndices} = handGroups(x,y);
       frameDotIndexes(el.redFrame, fiveIndices); frameDotIndexes(el.greenFrame, restIndices);
-      el.labelTop.textContent = '5 + 5 = 10'; el.labelBottom.textContent = `${Math.max(0,x-5)} + ${Math.max(0,y-5)}`;
+      el.labelTop.textContent = '5 + 5'; el.labelBottom.textContent = `${Math.max(0,x-5)} + ${Math.max(0,y-5)}`;
       await sleep(2000);
     } else if (name === 'nine') {
       const other = x === 9 ? y : x;
       const {nineGroup,donor:donorIndex}=arrangeNine(x,y);
       await moveCounterToCell(donorIndex, 1, 10, token, 900);
       if(token!==animationToken) return;
-      frameDotIndexes(el.redFrame, [...nineGroup, donorIndex]); el.labelTop.textContent = '9 + 1 = 10'; el.labelBottom.textContent = `10 + ${other-1} = ${sum}`;
+      frameDotIndexes(el.redFrame, [...nineGroup, donorIndex]); el.labelTop.textContent = '9 + 1'; el.labelBottom.textContent = `10 + ${other-1}`;
       await sleep(2000);
     } else if (name === 'ten') {
       const big = Math.max(x,y), small = Math.min(x,y), transfer = 10-big;
@@ -492,7 +492,7 @@
       await sleep(2000);
     } else if (name === 'giant') {
       const big = Math.max(x,y), small = Math.min(x,y); setDotsForLevel(x,y,3); groupIndices(x,y).big.slice(0,10).forEach(i => { $$('.dot')[i].style.opacity='.24'; });
-      el.labelTop.textContent = `${big-10} + ${small} = ${big-10+small}`; el.labelBottom.textContent = `${big} + ${small} = ${sum}`;
+      el.labelTop.textContent = `${big-10} + ${small}`; el.labelBottom.textContent = `${big} + ${small}`;
       await sleep(2000);
     }
     if (token !== animationToken) return;
@@ -556,5 +556,14 @@
     window.addEventListener('orientationchange', () => setTimeout(fitToScreen,100), {passive:true});
     if (window.visualViewport) window.visualViewport.addEventListener('resize', () => requestAnimationFrame(fitToScreen), {passive:true});
   }
+  // Small read-only test hook for automated QA; no gameplay state is changed.
+  window.__plusLernspielQA = {
+    inspectBoard() {
+      const dots = $$('.dot').filter(d => d.classList.contains('red') || d.classList.contains('blue') || d.classList.contains('green'));
+      const items = dots.map(d => ({index:Number(d.dataset.index), color:d.classList.contains('red')?'red':d.classList.contains('blue')?'blue':'green', row:Number(d.style.gridRow), col:Number(d.style.gridColumn), rect:(()=>{const r=d.getBoundingClientRect();return {left:r.left,top:r.top,right:r.right,bottom:r.bottom,width:r.width,height:r.height};})()}));
+      const board=el.pointsField.getBoundingClientRect();
+      return {count:items.length, items, board:{left:board.left,top:board.top,right:board.right,bottom:board.bottom}, outside:items.filter(d=>!d.row||!d.col||d.row<1||d.row>2||d.col<1||d.col>10||d.rect.left<board.left-2||d.rect.right>board.right+2||d.rect.top<board.top-2||d.rect.bottom>board.bottom+2).map(d=>d.index)};
+    }
+  };
   buildDots(); bind(); startSession(1);
 })();
