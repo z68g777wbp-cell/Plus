@@ -64,3 +64,33 @@
 .points-field,.points-layer{grid-template-columns:repeat(5,minmax(0,1fr)) minmax(12px,2fr) repeat(5,minmax(0,1fr));}
 
 .points-field,.points-layer{grid-template-columns:repeat(5,minmax(0,1fr)) minmax(18px,2fr) repeat(5,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(0,1fr))!important;}
+
+/* Referenz-Zwanzigerfeld: zehn gleich breite Spalten, mit einem breiten grauen
+   Mittelsteg nach der fünften Zelle. Der Mittelsteg ist eine feste Lücke,
+   keine zusätzliche breite Zelle. Das Punkte-Overlay verwendet exakt dieselbe Geometrie. */
+.points-field,
+.points-layer {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) clamp(18px, 2.1vw, 42px) repeat(5, minmax(0, 1fr)) !important;
+  grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
+  column-gap: clamp(3px, .25vw, 5px) !important;
+  row-gap: clamp(8px, 1.4vw, 18px) !important;
+}
+.points-field {
+  padding: clamp(5px, .7vw, 9px) !important;
+  background: #d4d4d4 !important;
+  border: 0 !important;
+}
+.points-layer {
+  inset: 0 !important;
+  padding: clamp(5px, .7vw, 9px) !important;
+}
+.field-cell { background: #fff !important; border: 1px solid #d0d0d0 !important; min-width: 0; min-height: 0; }
+.points-layer .dot { width: 86% !important; max-width: 100%; border: 0 !important; box-shadow: none !important; }
+@media (max-width: 700px) {
+  .points-field, .points-layer {
+    grid-template-columns: repeat(5, minmax(0, 1fr)) clamp(12px, 2.1vw, 24px) repeat(5, minmax(0, 1fr)) !important;
+    column-gap: 3px !important;
+    row-gap: 7px !important;
+  }
+  .points-field, .points-layer { padding: 4px !important; }
+}
