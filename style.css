@@ -62,3 +62,5 @@
 .points-layer{inset:0!important;}
 /* Das Zwanzigerfeld hat nach der fünften Spalte einen doppelt breiten grauen Trennbalken. */
 .points-field,.points-layer{grid-template-columns:repeat(5,minmax(0,1fr)) minmax(12px,2fr) repeat(5,minmax(0,1fr));}
+
+.points-field,.points-layer{grid-template-columns:repeat(5,minmax(0,1fr)) minmax(18px,2fr) repeat(5,minmax(0,1fr))!important;grid-template-rows:repeat(2,minmax(0,1fr))!important;}

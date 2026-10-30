@@ -117,6 +117,11 @@
       const cell = document.createElement('span');
       cell.className = 'field-cell';
       cell.setAttribute('aria-hidden', 'true');
+      // The reference twenty-field has five cells, a double-width grey divider, then five cells.
+      const row = Math.floor(i / 10) + 1;
+      const col = (i % 10) + 1;
+      cell.style.gridRow = String(row);
+      cell.style.gridColumn = String(col <= 5 ? col : col + 1);
       el.pointsField.append(cell);
     }
     const layer = document.createElement('div');
