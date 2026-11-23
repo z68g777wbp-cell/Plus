@@ -94,3 +94,139 @@
   }
   .points-field, .points-layer { padding: 4px !important; }
 }
+
+/* =====================================================================
+   DENKAVO-Optik analog zum Minus-Lernspiel (Kopfleiste, gelbe Level-Tasten,
+   drei Spalten: Zwanzigerfeld · Aufgabe · Ziffernfeld). Das Zwanzigerfeld
+   und seine Geometrie oben bleiben unverändert.
+   ===================================================================== */
+:root{--ui-yellow:#f6c945;--ui-dark:#343a40;--ui-btn:#e5e7eb;--ui-btn-ink:#263445;--card:#fbfcfe}
+html,body{background:#f4f7fb;color:#1f2937;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif}
+#app{height:100dvh;padding:max(12px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) max(12px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));gap:14px}
+.topbar{flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--ui-dark);color:#fff;border-radius:16px;padding:12px;min-height:0}
+.topbar .level-select{flex:0 0 auto;display:flex;flex-wrap:wrap;justify-content:center;gap:8px}
+.topbar .level-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;min-width:112px;height:54px;padding:4px 12px;border:0;border-radius:12px;background:var(--ui-btn);color:var(--ui-btn-ink);font-weight:900}
+.topbar .level-btn.active{background:var(--ui-yellow);color:#20252b;outline:2px solid #fff1bd;outline-offset:1px}
+.lvl-main{font-size:15px;font-weight:900;line-height:1.1}.lvl-sub{font-size:11px;font-weight:700;line-height:1.1}
+.top-controls{display:flex;flex-wrap:wrap;justify-content:center;gap:12px}
+.control-group{display:flex;gap:8px;padding:6px;border-radius:12px;background:rgba(255,255,255,.10)}
+.topbar .ctrl-btn{display:flex;align-items:center;justify-content:center;gap:7px;min-width:112px;height:46px;padding:0 14px;border:0;border-radius:12px;background:var(--ui-btn);color:var(--ui-btn-ink);font-size:16px;font-weight:900;line-height:1}
+.topbar .ctrl-btn.active{background:var(--ui-yellow);color:#20252b}
+.topbar .ctrl-btn[hidden]{display:none}
+.fs-icon{font-size:20px}
+.count-box{display:flex;align-items:center;justify-content:center;gap:5px;min-width:84px;height:46px;padding:0 14px;border-radius:12px;font-size:18px;font-weight:900}
+.count-ok{background:#d1fae5;color:#166534}.count-bad{background:#ffe4e6;color:#9f1239}
+#game{grid-template-columns:minmax(0,1.45fr) minmax(0,1fr) minmax(170px,.45fr);gap:18px}
+#game[hidden]{display:none}
+.board-panel,.work-panel,.keypad-panel{background:var(--card);border-radius:14px;box-shadow:none;min-width:0;min-height:0}
+.board-panel{padding:clamp(10px,1.6vw,22px);padding-top:clamp(42px,6vh,64px)}
+.work-panel{justify-content:flex-start}
+.keypad-panel{display:flex;align-items:center;justify-content:center;padding:10px}
+.keypad-panel .keypad{width:min(220px,100%);grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:auto}
+.keypad-panel .key-btn{min-height:0;height:48px;border:1px solid #d3dce8;border-radius:12px;background:#e7edf5;box-shadow:none;font-size:19px;color:#1e293b}
+.keypad-panel .key-btn.utility{background:#e7edf5;color:#1e293b}
+.keypad-panel .key-btn.key-del{background:#fee2e2;border-color:#fecaca;color:#7f1d1d}
+.task-text,.equals{color:#172554}
+.task-text{font-size:clamp(38px,4.2vw,58px)}
+.answer-input{background:#fff7d6;border-color:#cbd5e1}
+.next-btn{background:var(--ui-yellow);color:#20252b}
+.secondary-btn{background:var(--ui-btn);color:var(--ui-btn-ink)}
+.strategy-btn{background:#eef2f6;border-color:#d8e0ea;color:#263445}
+.strategy-btn:active{background:#ffe08a}
+.result-panel{background:#f4f7fb}
+/* iPad hochkant und kleinere Breiten: Feld oben, Aufgabe und Ziffernfeld darunter. */
+@media (max-width:980px){
+  #game{grid-template-columns:minmax(0,1fr) minmax(170px,.5fr);grid-template-rows:minmax(0,.9fr) minmax(0,1.1fr);gap:12px}
+  .board-panel{grid-column:1/-1}
+}
+@media (max-width:700px){
+  #app{padding:8px;gap:8px}
+  .topbar{padding:8px;gap:7px;border-radius:12px}
+  .topbar .level-btn{min-width:86px;height:46px}
+  .topbar .ctrl-btn{min-width:0;height:40px;font-size:14px}
+  .count-box{height:40px;min-width:62px;font-size:16px}
+  #game{grid-template-columns:minmax(0,1fr) minmax(130px,.6fr);grid-template-rows:minmax(110px,.8fr) minmax(0,1.3fr);gap:8px}
+  .board-panel{padding-top:38px}
+  .keypad-panel .keypad{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .keypad-panel .key-btn{height:clamp(34px,6vh,46px);font-size:18px}
+  .task-text{font-size:clamp(28px,7vw,40px)}
+}
+/* Mittlere Spalte: Strategie-Karten in zwei Reihen, Wörter werden nicht getrennt. */
+#game{grid-template-columns:minmax(0,1.3fr) minmax(0,1.1fr) minmax(160px,.42fr)}
+.work-panel .strategy-buttons{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.work-panel .strategy-btn{height:auto;min-height:64px;padding:6px 4px;font-size:13px;overflow-wrap:normal;word-break:normal;hyphens:manual;line-height:1.15}
+.work-panel .strategy-btn span{font-size:22px}
+.progress-row{flex-wrap:wrap;gap:4px 10px}
+#progressDots{letter-spacing:1px;font-size:12px}
+@media (max-width:980px){#game{grid-template-columns:minmax(0,1fr) minmax(170px,.5fr)}}
+@media (max-width:700px){#game{grid-template-columns:minmax(0,1fr) minmax(130px,.6fr)}.work-panel .strategy-btn{min-height:48px;font-size:11px}.work-panel .strategy-btn span{font-size:17px}}
+
+/* =====================================================================
+   Zählung nur im Hintergrund (wie Minus) · Ziffernfeld unten über die ganze Breite
+   ===================================================================== */
+[hidden]{display:none !important}
+.top-controls .counts{display:none !important}
+#game{grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto;grid-template-areas:"board work" "keys keys";gap:14px}
+.board-panel{grid-area:board}.work-panel{grid-area:work}.keypad-panel{grid-area:keys}
+.keypad-panel{padding:8px 10px}
+.keypad-panel .keypad{width:100%;max-width:none;grid-template-columns:repeat(12,minmax(0,1fr));gap:8px;margin:0}
+.keypad-panel .key-btn{height:clamp(44px,7vh,60px);font-size:clamp(18px,2.4vw,24px)}
+@media (orientation:portrait){
+  #game{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1.15fr) minmax(0,1fr) auto;grid-template-areas:"board" "work" "keys"}
+  .keypad-panel .keypad{grid-template-columns:repeat(6,minmax(0,1fr))}
+}
+@media (max-width:700px){
+  .keypad-panel .key-btn{height:clamp(36px,6vh,48px)}
+}
+
+/* =====================================================================
+   Level 4–6: gelbes / blaues / grünes Feld mit Zehnerstangen und Einerwürfeln
+   ===================================================================== */
+.place-board{position:relative;flex:1 1 auto;align-self:stretch;width:100%;min-height:0;height:100%}
+.board-panel:has(.place-board:not([hidden])){padding-top:clamp(10px,1.6vw,22px)}
+.pf{position:absolute;border-radius:14px;border:2px solid transparent;z-index:1;transition:opacity .25s}
+.pf-yellow{background:#fef3c7;border-color:#fcd34d}
+.pf-blue{background:#dbeafe;border-color:#93c5fd}
+.pf-green{background:#dcfce7;border-color:#86efac}
+.pf-green.pulse{opacity:.25;transition:opacity .2s}
+.pf-cover{position:absolute;border-radius:14px;z-index:3;opacity:0;pointer-events:none;transition:opacity .3s}
+.pf-cover.on{opacity:1}
+.pf-cover-yellow{background:#facc15}
+.pf-cover-blue{background:#60a5fa}
+.pv-rod,.pv-cube{position:absolute;z-index:2;box-sizing:border-box}
+.pv-rod{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:var(--gap);padding-top:calc((var(--gap) / 2));border-radius:5px;border:2px solid}
+.pv-rod span{display:block;width:var(--cube);height:var(--cube);border-radius:3px;flex:0 0 auto}
+.pv-rod span:nth-child(6){margin-top:calc(var(--gap5) - var(--gap))}
+.pv-cube{border-radius:4px;border:2px solid}
+.pv-from-yellow.pv-rod{background:#fde68a;border-color:#b45309}.pv-from-yellow.pv-rod span{background:#f59e0b}
+.pv-from-yellow.pv-cube{background:#f59e0b;border-color:#b45309}
+.pv-from-blue.pv-rod{background:#bfdbfe;border-color:#1d4ed8}.pv-from-blue.pv-rod span{background:#3b82f6}
+.pv-from-blue.pv-cube{background:#3b82f6;border-color:#1d4ed8}
+.zr-steps{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:6px}
+.zr-step{display:flex;align-items:center;gap:10px;font-size:clamp(22px,2.6vw,32px);font-weight:900;color:#172554}
+.zr-step-input{width:3.2em;height:1.7em;font-size:inherit}
+.answer-input.ok{background:#bbf7d0;border-color:#16a34a}
+.answer-input.bad{background:#fecaca;border-color:#dc2626}
+.answer-input.done{background:#fff;border-color:#cbd5e1;color:#172554}
+.zr-choice{margin-top:10px;width:100%}
+.zr-buttons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.zr-step-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:64px;padding:6px;border-radius:12px;border:1px solid #d8e0ea;background:#eef2f6;color:#263445;font-weight:800;cursor:pointer}
+.zr-btn-name{font-size:12px;line-height:1.15;text-align:center}
+.zr-btn-calc{font-size:clamp(18px,2vw,22px);font-weight:900;color:#172554}
+.zr-step-btn:active{background:#ffe08a}
+.zr-step-btn.shake{animation:zrShake .4s}
+@keyframes zrShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+/* Grüne Abdeckung (Level 3–6), Signal und Fehlwahl */
+.pf-cover-green{background:#4ade80}
+.pf-cover.on.pulse{opacity:.25;transition:opacity .2s}
+.fade-mask.green-cover{background:#4ade80}
+.zr-step-btn{font-size:clamp(18px,2vw,22px);font-weight:900;color:#172554;min-height:56px}
+.zr-step-btn.wrong,.strategy-btn.wrong{background:#fecaca;border-color:#dc2626;color:#7f1d1d;transition:background .1s}
+/* Rechenschritt-Buttons in einer Zeile */
+.zr-buttons{display:flex;flex-wrap:nowrap;gap:5px}
+.zr-step-btn{flex:1 1 0;min-width:0;min-height:44px;padding:4px 2px;font-size:clamp(11px,1.35vw,16px);white-space:nowrap;border-radius:10px}
+@media (orientation:portrait){.zr-step-btn{font-size:clamp(11px,1.9vw,16px)}}
+.zr-step-btn,.zr-step-btn{font-size:var(--zr-font,16px)}
+@media (orientation:portrait){.zr-step-btn{font-size:var(--zr-font,16px)}}
+.zr-step-btn{padding:4px 1px;letter-spacing:-.01em}
+.topbar .home-btn{min-width:56px;padding:0 10px}

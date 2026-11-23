@@ -3,24 +3,36 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f6f8fc">
+  <meta name="theme-color" content="#f4f7fb">
   <title>Plus-Lernspiel – Rechenstrategien</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="app">
   <header class="topbar">
-    <div class="brand">Plus-Lernspiel</div>
     <div class="level-select" role="group" aria-label="Level auswählen">
-      <button class="level-btn active" data-level="1">Level 1 · ZR 6</button>
-      <button class="level-btn" data-level="2">Level 2 · ZR 10</button>
-      <button class="level-btn" data-level="3">Level 3 · ZR 20</button>
+      <button class="level-btn active" data-level="1"><span class="lvl-main">Level 1</span><span class="lvl-sub">ZR 6</span></button>
+      <button class="level-btn" data-level="2"><span class="lvl-main">Level 2</span><span class="lvl-sub">ZR 10</span></button>
+      <button class="level-btn" data-level="3"><span class="lvl-main">Level 3</span><span class="lvl-sub">ZR 20</span></button>
+      <button class="level-btn" data-level="4"><span class="lvl-main">Level 4</span><span class="lvl-sub">ZR 100 · ZE+E / ZE+Z</span></button>
+      <button class="level-btn" data-level="5"><span class="lvl-main">Level 5</span><span class="lvl-sub">ZR 100 · ZE+ZE oÜ</span></button>
+      <button class="level-btn" data-level="6"><span class="lvl-main">Level 6</span><span class="lvl-sub">ZR 100 · ZE+ZE mÜ</span></button>
     </div>
-    <button id="leaveBtn" class="leave-btn" title="Durchgang beenden" aria-label="Durchgang beenden – offene Tür">⇥</button>
+    <div class="top-controls">
+      <div class="control-group">
+        <button id="homeBtn" class="ctrl-btn home-btn" type="button" title="Zur Übersicht" aria-label="Zur Übersicht"><svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path d="M3 11.2 12 4l9 7.2" fill="none" stroke="#263445" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><path d="M5.5 10v9.5h4.5v-5.5h4v5.5h4.5V10" fill="none" stroke="#263445" stroke-width="2.2" stroke-linejoin="round"/></svg></button>
+        <button id="fullscreenBtn" class="ctrl-btn" type="button" title="Vollbild" aria-pressed="false"><span class="fs-icon" aria-hidden="true">⛶</span><span class="fs-label">Vollbild</span></button>
+        <button id="leaveBtn" class="ctrl-btn leave-btn" type="button" title="Durchgang beenden" aria-label="Durchgang beenden">Ende</button>
+      </div>
+      <div class="control-group counts" aria-label="Zähler">
+        <div class="count-box count-ok" title="Beim ersten Versuch richtig">✓ <span id="okCount">0</span></div>
+        <div class="count-box count-bad" title="Beim ersten Versuch falsch">✗ <span id="badCount">0</span></div>
+      </div>
+    </div>
   </header>
 
   <main id="game">
-    <section class="board-panel" aria-label="Punktefeld und Animation">
+    <section class="board-panel" aria-label="Zwanzigerfeld und Animation">
       <div id="pointsWrap" class="points-wrap">
         <div id="pointsField" class="points-field" aria-label="20er-Feld"></div>
         <div id="redFrame" class="frame red-frame" aria-hidden="true"></div>
@@ -29,6 +41,7 @@
         <div id="labelTop" class="board-label" aria-hidden="true"></div>
         <div id="labelBottom" class="board-label" aria-hidden="true"></div>
       </div>
+      <div id="placeBoard" class="place-board" hidden aria-label="Stellenwertfelder: gelb 1. Summand, blau 2. Summand, grün Summe"></div>
       <div id="strategyHint" class="strategy-hint" aria-live="polite"></div>
     </section>
 
@@ -38,11 +51,10 @@
         <div id="taskText" class="task-text">2 + 3</div><div class="equals">=</div>
         <input id="answerInput" class="answer-input" aria-label="Ergebnis" inputmode="none" autocomplete="off" readonly>
       </div>
-      <div id="keypad" class="keypad" aria-label="Ziffernfeld">
-        <button class="key-btn" data-key="1">1</button><button class="key-btn" data-key="2">2</button><button class="key-btn" data-key="3">3</button>
-        <button class="key-btn" data-key="4">4</button><button class="key-btn" data-key="5">5</button><button class="key-btn" data-key="6">6</button>
-        <button class="key-btn" data-key="7">7</button><button class="key-btn" data-key="8">8</button><button class="key-btn" data-key="9">9</button>
-        <button class="key-btn utility" data-key="clear" aria-label="Eingabe löschen">C</button><button class="key-btn" data-key="0">0</button><button class="key-btn utility" data-key="back" aria-label="Letzte Ziffer löschen">⌫</button>
+      <div id="zrSteps" class="zr-steps" hidden aria-live="polite"></div>
+      <div id="zrChoice" class="zr-choice" hidden>
+        <div id="zrChoiceTitle" class="strategy-title">1. Rechenschritt wählen:</div>
+        <div id="zrButtons" class="zr-buttons"></div>
       </div>
       <div class="strategy-area" id="strategyArea" hidden>
         <div class="strategy-title">Welche Strategie passt?</div>
@@ -56,6 +68,12 @@
       </div>
       <div class="bottom-row"><span id="feedback" role="status" aria-live="polite"></span><button id="nextBtn" class="next-btn" hidden>Weiter</button></div>
     </section>
+
+    <section class="keypad-panel" aria-label="Ziffernfeld">
+      <div id="keypad" class="keypad">
+        <button class="key-btn" data-key="1">1</button><button class="key-btn" data-key="2">2</button><button class="key-btn" data-key="3">3</button><button class="key-btn" data-key="4">4</button><button class="key-btn" data-key="5">5</button><button class="key-btn" data-key="6">6</button><button class="key-btn" data-key="7">7</button><button class="key-btn" data-key="8">8</button><button class="key-btn" data-key="9">9</button><button class="key-btn" data-key="0">0</button><button class="key-btn utility" data-key="clear" aria-label="Eingabe löschen">C</button><button class="key-btn utility key-del" data-key="back" aria-label="Letzte Ziffer löschen">⌫</button>
+      </div>
+    </section>
   </main>
 
   <section id="resultPanel" class="result-panel" hidden aria-live="polite">
@@ -65,7 +83,6 @@
     <div id="resultDetails" class="result-details"></div>
     <div class="result-actions"><button id="againBtn" class="next-btn">Noch einmal</button><button id="resultLevelBtn" class="secondary-btn">Level wählen</button></div>
   </section>
-  <footer class="footnote">Die Zeit und die Ergebnisse werden für diesen Durchgang im Hintergrund erfasst.</footer>
 </div>
 <script src="game.js"></script>
 </body>

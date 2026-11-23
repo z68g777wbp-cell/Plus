@@ -31,3 +31,8 @@ assert.equal(Core.strategyValidity('ten', 3, 4), false);
 assert.equal(Core.strategyValidity('giant', 13, 4), true);
 assert.equal(Core.strategyValidity('giant', 8, 4), false);
 console.log('OK: 1.500 Aufgabenblöcke, mathematische Bedingungen, Duplikate und Strategieregeln geprüft.');
+// 9er-Trick braucht einen freien Platz im Zwanzigerfeld: bei 9 + 11 / 11 + 9 nicht möglich.
+assert.equal(Core.strategyValidity('nine', 9, 10), true);
+assert.equal(Core.strategyValidity('nine', 9, 11), false);
+assert.equal(Core.strategyValidity('nine', 11, 9), false);
+console.log('OK: 9er-Trick nur mit freiem Zielplatz.');
