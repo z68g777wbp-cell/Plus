@@ -230,3 +230,14 @@ html,body{background:#f4f7fb;color:#1f2937;font-family:system-ui,-apple-system,"
 @media (orientation:portrait){.zr-step-btn{font-size:var(--zr-font,16px)}}
 .zr-step-btn{padding:4px 1px;letter-spacing:-.01em}
 .topbar .home-btn{min-width:56px;padding:0 10px}
+
+/* Symbolknöpfe wie im Minus-Spiel, Schalter Animation / ohne Rechenschritte */
+.topbar .icon-btn{min-width:64px;padding:0 10px}
+.topbar .anim-btn.active{background:var(--ui-yellow)}
+.topbar .anim-btn.active .anim-strike{display:none}
+.topbar .direct-btn.active{background:var(--ui-yellow)}
+.topbar .ctrl-btn:disabled{opacity:.45;cursor:default}
+#game.no-viz{grid-template-columns:minmax(0,1fr);grid-template-areas:"work" "keys"}
+#game.no-viz .board-panel{display:none}
+@media (orientation:portrait){#game.no-viz{grid-template-rows:minmax(0,1fr) auto}}
+.strategy-btn .giant-dwarf{display:block;width:clamp(30px,3.2vw,46px);height:auto}

@@ -184,7 +184,7 @@
     answer: $('#answerInput'), keypad: $('#keypad'), strategyArea: $('#strategyArea'), progressText: $('#progressText'), progressDots: $('#progressDots'),
     feedback: $('#feedback'), next: $('#nextBtn'), leave: $('#leaveBtn'), result: $('#resultPanel'), resultScore: $('#resultScore'),
     resultTime: $('#resultTime'), resultDetails: $('#resultDetails'), celebration: $('#resultCelebration'), again: $('#againBtn'), resultLevel: $('#resultLevelBtn'),
-    okCount: $('#okCount'), badCount: $('#badCount'), fullscreen: $('#fullscreenBtn'), home: $('#homeBtn'),
+    okCount: $('#okCount'), badCount: $('#badCount'), fullscreen: $('#fullscreenBtn'), home: $('#homeBtn'), anim: $('#animBtn'), direct: $('#directBtn'),
     placeBoard: $('#placeBoard'), zrSteps: $('#zrSteps'), zrChoice: $('#zrChoice'), zrButtons: $('#zrButtons'), zrChoiceTitle: $('#zrChoiceTitle'), equals: $('.equals')
   };
   let level = 1, tasks = [], index = 0, current = null, firstAttempts = 0, correct = 0, wrong = 0, startAt = 0, taskStartAt = 0;
@@ -200,6 +200,11 @@
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   // Eingabeziel des Ziffernfelds: Ergebnisfeld der Rechnung oder ein Feld einer Hilfsrechnung.
   let activeInput = null, activeExpected = '';
+  // Schalter wie im Minus-Spiel: Animation (Darstellung) ein/aus und „ohne Rechenschritte“
+  // (direkte Ergebniseingabe in Level 3, 5 und 6; schaltet auch die Animation aus).
+  let animationOn = true, directMode = false;
+  const DIRECT_LEVELS = [3, 5, 6];
+  const directActive = () => directMode && DIRECT_LEVELS.includes(level);
   function setActiveInput(input, expected) { activeInput = input; activeExpected = input ? String(expected) : ''; }
   function inputBlocked() { return Core.LEVELS[level].zr100 ? ZR.busy : (lock || el.answer.disabled); }
   // ---- Lernplattform-Brücke (DENKAVO) ----
@@ -241,7 +246,6 @@
     el.fullscreen.classList.toggle('active', active);
     el.fullscreen.setAttribute('aria-pressed', String(active));
     el.fullscreen.title = active ? 'Vollbild beenden' : 'Vollbild';
-    el.fullscreen.querySelector('.fs-label').textContent = active ? 'Verlassen' : 'Vollbild';
     requestAnimationFrame(fitAll);
   }
   function speak(text) {
@@ -475,7 +479,9 @@
     el.feedback.textContent = ''; el.strategyHint.textContent = ''; el.next.hidden = true; lock = false; lastChosenStrategy = null;
     taskAttemptCount = 0; helpUsedThisTask = current.isRetry ? ['wiederholung'] : [];
     el.answer.disabled = false; el.keypad.querySelectorAll('button').forEach(b => b.disabled = false);
-    el.strategyArea.hidden = level !== 3;
+    el.strategyArea.hidden = level !== 3 || directActive();
+    el.game.classList.toggle('no-viz', !animationOn);
+    if (directActive()) addHelp('ohne-rechenschritte');
     el.taskText.style.display = ''; $('.equals').style.display = ''; el.answer.style.display = '';
     const zr = !!Core.LEVELS[level].zr100;
     el.pointsWrap.hidden = zr; el.placeBoard.hidden = !zr; el.zrSteps.hidden = true; el.zrChoice.hidden = true;
@@ -483,6 +489,11 @@
     if (zr) {
       animationToken++;
       zrStart(current);
+    } else if (!animationOn) {
+      animationToken++; clearDotPlacement();
+    } else if (level === 3 && directActive()) {
+      // Ohne Rechenschritte: Aufgabe zeigen, nach 1,5 s grün abdecken.
+      showLevel3Direct(++animationToken);
     } else if (level === 3) {
       // Keep the static 20-cell field empty until a strategy button is selected.
       animationToken++;
@@ -624,7 +635,8 @@
       addHelp(level === 3 ? 'hilfe-strategie' : 'hilfsrechnung');
       el.feedback.textContent = level === 3 ? '' : 'Versuche es noch einmal.';
       const token = ++animationToken;
-      if (level === 3) runStrategyHelp(current, token);
+      if (!animationOn) { /* keine Darstellung */ }
+      else if (level === 3) { if (directActive()) showLevel3Direct(token); else runStrategyHelp(current, token); }
       else animateIntro(current, true);
     }
   }
@@ -711,7 +723,36 @@
     emitLearning('session-start', { level, roundTaskCount: Core.LEVELS[level].count, startedAt: startAt });
     el.result.hidden = true; el.game.hidden = false; el.strategyArea.hidden = level !== 3; el.next.hidden = true;
     $$('.level-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.level) === level));
-    pickNext(); fitToScreen();
+    updateModeButtons(); pickNext(); fitToScreen();
+  }
+  async function showLevel3Direct(token) {
+    setDotsForLevel(current.x, current.y, 3); el.fadeMask.classList.add('green-cover');
+    await sleep(1500); if (token !== animationToken) return;
+    el.fadeMask.style.opacity = '1';
+  }
+  function updateModeButtons() {
+    if (el.anim) { el.anim.classList.toggle('active', animationOn); el.anim.setAttribute('aria-pressed', String(animationOn)); }
+    if (el.direct) {
+      const available = DIRECT_LEVELS.includes(level);
+      el.direct.disabled = !available;
+      el.direct.classList.toggle('active', available && directMode);
+      el.direct.setAttribute('aria-pressed', String(available && directMode));
+    }
+  }
+  // Die laufende Rechnung beginnt in der neuen Form von vorne (keine neue Rechnung).
+  function restartCurrentTask() {
+    updateModeButtons();
+    if (!current || el.game.hidden) return;
+    clearTimers(); if (checkTimer) { clearTimeout(checkTimer); checkTimer = null; }
+    ZR.token++; animationToken++;
+    renderTask(); requestAnimationFrame(fitAll);
+  }
+  function toggleAnimation() { animationOn = !animationOn; restartCurrentTask(); }
+  function toggleDirect() {
+    if (!DIRECT_LEVELS.includes(level)) return;
+    directMode = !directMode;
+    if (directMode) animationOn = false;
+    restartCurrentTask();
   }
   function leaveSession() { if (firstAttempts === 0 && !current) return; finishSession(true); }
   function fitToScreen() {
@@ -735,6 +776,8 @@
     $$('.strategy-btn').forEach(b => b.addEventListener('click', () => chooseStrategy(b.dataset.strategy, b)));
     el.next.addEventListener('click', () => { if (firstAttempts >= Core.LEVELS[level].count) finishSession(false); else pickNext(); });
     el.leave.addEventListener('click', leaveSession);
+    el.anim?.addEventListener('click', toggleAnimation);
+    el.direct?.addEventListener('click', toggleDirect);
     // Haus-Knopf (wie im Minus-Spiel): nur in der Plattform sichtbar. Sitzung beenden,
     // die Plattform speichert offene Ereignisse und wechselt zur Lern-Übersicht.
     if (el.home) {
@@ -775,16 +818,17 @@
     const W = el.placeBoard.clientWidth, H = el.placeBoard.clientHeight;
     const gap = Math.max(8, Math.min(18, W * 0.03));
     // Oben je Feld: bis 9 Stangen + 1 Einerspalte; unten: 9 Stangen + 2 Einerspalten.
-    const byTop = ((W - gap) / 2) / (10 * 1.5 + 0.7);
-    const byGreen = W / (ZR_GREEN_ROD_COLS + 2) / 1.5 - 0.1;
+    // Spalten: Stangen bzw. Einer, nach der 5. Spalte ein zusätzlicher Abstand (0,7 c).
+    const byTop = ((W - gap) / 2) / (10 * 1.5 + 0.7 + 0.7);
+    const byGreen = W / ((ZR_GREEN_ROD_COLS + 2) * 1.5 + 0.7 + 1.2);
     const byH = (H - gap) / (2 * (10 * 1.12 + 0.5 + 1.2));
     const c = Math.max(6, Math.min(byTop, byGreen, byH, 26));
-    const pad = c * 0.6, pitch = c * 1.5, vPitch = c * 1.12, gap5 = c * 0.5;
+    const pad = c * 0.6, pitch = c * 1.5, vPitch = c * 1.12, gap5 = c * 0.5, colGap5 = c * 0.7;
     const fieldH = 9 * vPitch + c + gap5 + 2 * pad;
     const topW = (W - gap) / 2;
     const totalH = 2 * fieldH + gap, oy = Math.max(0, (H - totalH) / 2);
-    const gW = Math.min(W, (ZR_GREEN_ROD_COLS + 2) * pitch + 2 * pad);
-    return { c, pad, pitch, vPitch, gap5, fields: {
+    const gW = Math.min(W, (ZR_GREEN_ROD_COLS + 2) * pitch + colGap5 + 2 * pad);
+    return { c, pad, pitch, vPitch, gap5, colGap5, fields: {
       yellow: { x: 0, y: oy, w: topW, h: fieldH },
       blue: { x: topW + gap, y: oy, w: topW, h: fieldH },
       green: { x: (W - gW) / 2, y: oy + fieldH + gap, w: gW, h: fieldH } } };
@@ -794,7 +838,7 @@
     let col, row = 0;
     if (item.kind === 'rod') col = s.i;
     else { col = s.col + (item.field === 'green' ? Math.floor(s.k / 10) : 0); row = s.k % 10; }
-    const x = f.x + g.pad + col * g.pitch;
+    const x = f.x + g.pad + col * g.pitch + (col >= 5 ? g.colGap5 : 0);
     const y = f.y + g.pad + row * g.vPitch + (row >= 5 ? g.gap5 : 0);
     return { x, y };
   }
@@ -858,6 +902,8 @@
     return token === ZR.token;
   }
   async function zrRunMoves(moves, token) {
+    // Die größere Anzahl bewegt sich zuerst – egal, ob sie zum 1. oder 2. Summanden gehört.
+    moves = moves.map((m, i) => ({ m, i, v: m.tens * 10 + m.ones })).sort((a, b) => b.v - a.v || a.i - b.i).map(e => e.m);
     for (let i = 0; i < moves.length; i++) {
       if (!(await zrMoveBlock(moves[i], token))) return false;
       if (i < moves.length - 1) { await sleep(300); if (token !== ZR.token) return false; }
@@ -875,16 +921,23 @@
   }
   async function zrStart(task) {
     const token = ++ZR.token; ZR.busy = true;
+    ZR.direct = directActive(); const simple = level === 4 || ZR.direct;
     ZR.state = Core.initSteps(task.x, task.y); ZR.stepIndex = 0; ZR.steps = []; ZR.pending = null;
     el.zrSteps.innerHTML = ''; el.zrSteps.hidden = level === 4; el.zrChoice.hidden = true; el.zrButtons.innerHTML = '';
     zrShowMainAnswer(false); setActiveInput(null);
     zrBuildBoard(); zrLayoutAll();
+    if (!animationOn) {
+      // Ohne Animation: keine Darstellung, sofort rechnen.
+      if (simple) { zrShowMainAnswer(true); setActiveInput(el.answer, task.x + task.y); }
+      else { ZR.buttons = Core.stepButtonsForTask(task.x, task.y); zrShowChoices(); }
+      ZR.busy = false; return;
+    }
     // 1. Summand zeigen, nach 1,5 s abdecken; dann 2. Summand zeigen, nach 1,5 s abdecken.
     zrShowSummand('yellow', task.x); await sleep(1500); if (token !== ZR.token) return; zrCover('yellow');
     await sleep(400); if (token !== ZR.token) return;
     zrShowSummand('blue', task.y); await sleep(1500); if (token !== ZR.token) return; zrCover('blue');
     await sleep(400); if (token !== ZR.token) return;
-    if (level === 4) {
+    if (simple) {
       const ok = await zrRunMoves([{ src: 'yellow', tens: zrTens(task.x), ones: zrOnes(task.x) }, { src: 'blue', tens: zrTens(task.y), ones: zrOnes(task.y) }], token);
       if (!ok) return;
       // Erst die Animation, nach 1,5 s grün abdecken; dann erscheint das Ergebnisfeld.
@@ -918,18 +971,20 @@
       addHelp('fehlwahl');
       button.classList.remove('wrong'); void button.offsetWidth; button.classList.add('wrong');
       setTimeout(() => button.classList.remove('wrong'), 1000);
-      zrPeek(btn.sources);
+      if (animationOn) zrPeek(btn.sources);
       return;
     }
     const token = ZR.token; ZR.busy = true; el.feedback.textContent = '';
     addHelp(`weg-${plan.type}`); el.zrChoice.hidden = true;
     // Führt der Schritt zum Endergebnis, erscheint auch bei der Startrechnung ein Ergebnisfeld.
     if (plan.final) zrShowMainAnswer(true);
-    // Grün aufdecken, Blöcke bewegen, nach 1,5 s wieder abdecken.
-    if (ZR.covered.green) { zrUncover('green'); await sleep(350); if (token !== ZR.token) return; }
-    if (!(await zrRunMoves(plan.moves, token))) return;
-    await sleep(1500); if (token !== ZR.token) return;
-    zrCover('green');
+    // Grün aufdecken, Blöcke bewegen, nach 1,5 s wieder abdecken (nur mit Animation).
+    if (animationOn) {
+      if (ZR.covered.green) { zrUncover('green'); await sleep(350); if (token !== ZR.token) return; }
+      if (!(await zrRunMoves(plan.moves, token))) return;
+      await sleep(1500); if (token !== ZR.token) return;
+      zrCover('green');
+    }
     ZR.pending = plan;
     const row = document.createElement('div'); row.className = 'zr-step';
     row.innerHTML = `<span class="zr-step-calc">${plan.label} =</span>`;
@@ -944,7 +999,7 @@
     const input = activeInput; if (!input || ZR.busy || !current) return;
     const token = ZR.token, expected = activeExpected, given = input.value, right = given === expected;
     ZR.busy = true; taskAttemptCount++;
-    const stepNo = level === 4 ? null : ZR.stepIndex + 1;
+    const stepNo = (level === 4 || ZR.direct) ? null : ZR.stepIndex + 1;
     const stepsForLog = right && ZR.pending ? [...zrCalcSteps(), { step: ZR.steps.length + 1, delta: ZR.pending.terms[1], label: ZR.pending.label }] : zrCalcSteps();
     emitLearning('attempt', { ...taskInfo(current), givenAnswer: given, expectedAnswer: expected, isCorrect: right, attemptNumber: taskAttemptCount,
       durationMs: Math.max(0, Date.now() - taskStartAt), calculationSteps: stepsForLog, helpUsed: [...helpUsedThisTask], stepIndex: stepNo });
@@ -955,7 +1010,7 @@
       setTimeout(() => { if (token !== ZR.token) return; input.classList.remove('bad'); input.value = ''; el.feedback.textContent = ''; ZR.busy = false; }, 500);
       return;
     }
-    const finalStep = level === 4 || (ZR.pending && ZR.pending.final);
+    const finalStep = level === 4 || ZR.direct || (ZR.pending && ZR.pending.final);
     if (ZR.pending) { ZR.steps.push(ZR.pending); ZR.state = ZR.pending.next; }
     setTimeout(async () => {
       if (token !== ZR.token) return;
@@ -963,7 +1018,7 @@
       // Grünes Feld wird als Signal 1 s durchsichtig.
       zrPulseGreen();
       if (finalStep) {
-        if (level !== 4) { el.answer.value = String(current.x + current.y); el.answer.classList.add('done'); }
+        if (level !== 4 && !ZR.direct) { el.answer.value = String(current.x + current.y); el.answer.classList.add('done'); }
         bookkeepSolved(zrCalcSteps());
         await sleep(1000); if (token !== ZR.token) return;
         goToNextTask(); // neue Rechnung nach insgesamt 1,5 s
